@@ -1,0 +1,29 @@
+Files
+ls: lists the files in the directory
+ls -a: lists all files including hidden files
+ls -l: lists files in "long format" including ownership and date of last update
+ls -t: lists files by date stamp, most recently updated file first
+ls -tr: lists files by dates stamp in reverse order, most recently updated file is listed last (this is useful if you have a lot of files, you want to know which file you changed last and the list of files results in a scrolling window)
+more filename: shows the first part of a file, hitting the space bar allows you to scroll through the rest of the file, q will cause you to exit out of the file
+less filename: allows you to scroll through the file, forward and backward, using the arrow keys
+tail filename: shows the last 10 lines of a file (useful when you are monitoring a logfile or output file to see that the values are correct)
+tail -<number> filename: show you the last <number> lines of a file.
+mv filename1 filename2: moves filename1 to filename2, in essence renames the file. The date and time are not changed by the mv command.
+cp filename1 filename2: copies filename1 to filename2. The date stamp on filename2 will be the date/time that the file was moved
+rm filename: removes (deletes) the file
+diff filename1 filename2: compares filename1 to filename2 and prints the differences to the screen
+diff filename1 filename2 > diff.out: will send the differences to a file called "diff.out"
+wc filename: returns the word count of filename
+Directories
+mkdir dirname: creates a directory with the name "dirname"
+cd dirname: change directory to directory "dirname"
+pwd: tells you which directory you are currently in
+cd ../: takes you up one level
+Searching
+grep string filename(s): searches for string within the specified filenames.
+grep -i string filename(s): search for string but ignore case (-i)
+grep string filenames(s) >grep_output: searches for string in filenames and sends the output to the file grep_output which you can then view with an editor or via the less and more commands.
+Miscellaneous
+du -h: shows the disk usage of the files in the given directory. When executed from your home directory is will list all of the files in your subdirectories. The -h switch is for "human readable" output.
+du -sh: outputs the total amount of disk space you are using, in human readable format
+date: returns the date and time
