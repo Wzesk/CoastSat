@@ -31,6 +31,9 @@ polygon = [[[151.301454, -33.700754],
 # can also be loaded from a .kml polygon
 # kml_polygon = os.path.join(os.getcwd(), 'examples', 'NARRA_polygon.kml')
 # polygon = SDS_tools.polygon_from_kml(kml_polygon)
+# or read from geojson polygon (create it from https://geojson.io/)
+# geojson_polygon = os.path.join(os.getcwd(), 'examples', 'NARRA_polygon.geojson')
+# polygon = SDS_tools.polygon_from_geojson(geojson_polygon)
 # convert polygon to a smallest rectangle (sides parallel to coordinate axes)
 polygon = SDS_tools.smallest_rectangle(polygon)
 
@@ -88,12 +91,18 @@ settings = {
     'cloud_mask_issue': False,  # switch this parameter to True if sand pixels are masked (in black) on many images
     'sand_color': 'default',    # 'default', 'latest', 'dark' (for grey/black sand beaches) or 'bright' (for white sand beaches)
     'pan_off': False,           # True to switch pansharpening off for Landsat 7/8/9 imagery
+    's2cloudless_prob': 40,      # threshold to identify cloud pixels in the s2cloudless probability mask
     # add the inputs defined previously
     'inputs': inputs,
 }
 
 # [OPTIONAL] preprocess images (cloud masking, pansharpening/down-sampling)
-# SDS_preprocess.save_jpg(metadata, settings)
+SDS_preprocess.save_jpg(metadata, settings, use_matplotlib=True)
+# create MP4 timelapse animation
+fn_animation = os.path.join(inputs['filepath'],inputs['sitename'], '%s_animation_RGB.mp4'%inputs['sitename'])
+fp_images = os.path.join(inputs['filepath'], inputs['sitename'], 'jpg_files', 'preprocessed')
+fps = 4 # frames per second in animation
+SDS_tools.make_animation_mp4(fp_images, fps, fn_animation)
 
 # [OPTIONAL] create a reference shoreline (helps to identify outliers and false detections)
 settings['reference_shoreline'] = SDS_preprocess.get_reference_sl(metadata, settings)
@@ -117,6 +126,12 @@ gdf.crs = {'init':'epsg:'+str(settings['output_epsg'])} # set layer projection
 # save GEOJSON layer to file
 gdf.to_file(os.path.join(inputs['filepath'], inputs['sitename'], '%s_output_%s.geojson'%(sitename,geomtype)),
                                 driver='GeoJSON', encoding='utf-8')
+
+# create MP4 timelapse animation
+fn_animation = os.path.join(inputs['filepath'],inputs['sitename'], '%s_animation_shorelines.mp4'%inputs['sitename'])
+fp_images = os.path.join(inputs['filepath'], inputs['sitename'], 'jpg_files', 'detection')
+fps = 4 # frames per second in animation
+SDS_tools.make_animation_mp4(fp_images, fps, fn_animation)
 
 # plot the mapped shorelines
 plt.ion()
@@ -192,7 +207,7 @@ settings_transects = { # parameters for computing intersections
                       'max_range':           30,        # max range for points around transect
                       'min_chainage':        -100,      # largest negative value along transect (landwards of transect origin)
                       'multiple_inter':      'auto',    # mode for removing outliers ('auto', 'nan', 'max')
-                      'prc_multiple':         0.1,      # percentage to use in 'auto' mode to switch from 'nan' to 'max'
+                      'auto_prc':            0.1,      # percentage to use in 'auto' mode to switch from 'nan' to 'max'
                      }
 cross_distance = SDS_transects.compute_intersection_QC(output, transects, settings_transects)
 
@@ -238,7 +253,7 @@ print('Time-series of the shoreline change along the transects saved as:\n%s'%fn
 # load the measured tide data
 filepath = os.path.join(os.getcwd(),'examples','NARRA_tides.csv')
 tide_data = pd.read_csv(filepath, parse_dates=['dates'])
-dates_ts = [_.to_pydatetime() for _ in tide_data['dates']]
+dates_ts = [pd.to_datetime(_).to_pydatetime() for _ in tide_data['dates']]
 tides_ts = np.array(tide_data['tide'])
 
 # get tide levels corresponding to the time of image acquisition
@@ -357,7 +372,7 @@ for key in cross_distance.keys():
 
     # plot seasonal averages
     fig,ax=plt.subplots(1,1,figsize=[14,4],tight_layout=True)
-    ax.grid(b=True,which='major', linestyle=':', color='0.5')
+    ax.grid(which='major', linestyle=':', color='0.5')
     ax.set_title('Time-series at %s'%key, x=0, ha='left')
     ax.set(ylabel='distance [m]')
     ax.plot(dates_nonan, chainage,'+', lw=1, color='k', mfc='w', ms=4, alpha=0.5,label='raw datapoints')
@@ -383,7 +398,7 @@ for key in cross_distance.keys():
 
     # plot seasonal averages
     fig,ax=plt.subplots(1,1,figsize=[14,4],tight_layout=True)
-    ax.grid(b=True,which='major', linestyle=':', color='0.5')
+    ax.grid(which='major', linestyle=':', color='0.5')
     ax.set_title('Time-series at %s'%key, x=0, ha='left')
     ax.set(ylabel='distance [m]')
     ax.plot(dates_nonan, chainage,'+', lw=1, color='k', mfc='w', ms=4, alpha=0.5,label='raw datapoints')
