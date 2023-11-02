@@ -220,7 +220,7 @@ def extract_sand_poly(metadata, settings):
                     
                     # convert to world coordinates
                     sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
-                    sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])[:,:-1]               
+                    sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]               
                     # make a shapely polygon 
                     if len(sand_contours_coords)>=3:
                         linear_ring = LinearRing(coordinates=sand_contours_coords[~np.isnan(sand_contours_coords[:,0])])
@@ -228,7 +228,7 @@ def extract_sand_poly(metadata, settings):
                 else:    
                     # convert to world coordinates
                     sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
-                    sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])[:,:-1]               
+                    sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]               
                     # make a shapely polygon
                     if len(sand_contours_coords)>=3:
                         linear_ring = LinearRing(coordinates=sand_contours_coords[~np.isnan(sand_contours_coords[:,0])])
@@ -260,7 +260,7 @@ def extract_sand_poly(metadata, settings):
                     sand_contours = [sand_contours[np.argmax(n_points)]]   
                 # convert to world coordinates
                 sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
-                sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])[:,:-1]               
+                sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]               
                 # make a shapely polygon
                 if len(sand_contours_coords)>=3:
                     linear_ring = LinearRing(coordinates=sand_contours_coords[~np.isnan(sand_contours_coords[:,0])])
