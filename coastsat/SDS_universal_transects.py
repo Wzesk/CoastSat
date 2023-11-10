@@ -183,32 +183,127 @@ def get_normal_vector_along_nurbs(crv,delta):
     #create list numbers from 0 to 1 with 0.01 increments
     t_values = np.arange(0,1,delta)
 
-    tangents = []
+    normals = []
     #get first ad second derivatives
     for i in range(len(t_values)):
         ders = crv.derivatives(u=t_values[i], order=1)
         #add first dir (position) to second dir (direction) to visualize tangent vector
         tan_vec = np.array([ders[1][0],ders[1][1]])  # tangent vector at u = 0.35
-    
+        #normalize vector length
+        tan_vector = tan_vec/np.linalg.norm(tan_vec)
+
         #get angle of tangent vector
         angle = np.arctan2(tan_vec[1], tan_vec[0])
         #get the perpendicular angle
         perpendicular_angle = angle + np.pi/2
-
         #get the perpendicular vector
         perpendicular_vector = np.array([np.cos(perpendicular_angle), np.sin(perpendicular_angle)])
         #normalize vector length
         normal_vector = perpendicular_vector/np.linalg.norm(perpendicular_vector)
+
         #append to list
-        tangents.append(normal_vector)
-    return curve_points,tangents
+        normals.append(normal_vector)
+
+    return curve_points,normals
+
+def get_planes_along_nurbs(crv,delta):
+    """
+    Get the normal vectors along a nurbs curve
+
+    Arguments:
+    -----------
+    crv: bezier curve
+    delta: float
+        spacing for the normal vectors
+
+    Returns:
+    -----------
+    points: list
+        x and y coordinates of points along crv
+    normal_vectors: list
+        x and y coordinates of the normal vector
+    """
+    crv.delta = delta
+    curve_points = crv.evalpts
+
+    #create list numbers from 0 to 1 with 0.01 increments
+    t_values = np.arange(0,1,delta)
+
+    planes = []
+    #get first ad second derivatives
+    for i in range(len(t_values)):
+        ders = crv.derivatives(u=t_values[i], order=1)
+        #add first dir (position) to second dir (direction) to visualize tangent vector
+        tan_vec = np.array([ders[1][0],ders[1][1]])  # tangent vector at u = 0.35
+        #normalize vector length
+        tan_vector = tan_vec/np.linalg.norm(tan_vec)
+
+        #get angle of tangent vector
+        angle = np.arctan2(tan_vec[1], tan_vec[0])
+        #get the perpendicular angle
+        perpendicular_angle = angle + np.pi/2
+        #get the perpendicular vector
+        perpendicular_vector = np.array([np.cos(perpendicular_angle), np.sin(perpendicular_angle)])
+        #normalize vector length
+        normal_vector = perpendicular_vector/np.linalg.norm(perpendicular_vector)
+
+        #append to list
+        plane = dict([])
+        plane['origin'] = curve_points[i]
+        plane['xvec'] = tan_vector
+        plane['yvec'] = normal_vector
+        planes.append(plane)    
+    return planes
+
+def get_plane_along_nurbs(crv,t_val):
+    """
+    Gets a plane along a nurbs curve
+
+    Arguments:
+    -----------
+    crv: bezier curve
+    delta: float
+        spacing for the normal vectors
+
+    Returns:
+    -----------
+    point: array
+        x and y coordinates of points along crv
+    plane: dict
+        origin x and y coordinates, x and y vectors
+    """
+    curve_pt = crv.evaluate_single(t_val)
+
+
+    ders = crv.derivatives(u=t_val, order=1)
+
+    tan_vec = np.array([ders[1][0],ders[1][1]])  # tangent vector at u = 0.35
+    #normalize vector length
+    tan_vector = tan_vec/np.linalg.norm(tan_vec)
+
+    #get angle of tangent vector
+    angle = np.arctan2(tan_vec[1], tan_vec[0])
+    #get the perpendicular angle
+    perpendicular_angle = angle + np.pi/2
+    #get the perpendicular vector
+    perpendicular_vector = np.array([np.cos(perpendicular_angle), np.sin(perpendicular_angle)])
+    #normalize vector length
+    normal_vector = perpendicular_vector/np.linalg.norm(perpendicular_vector)
+
+    #create plane
+    plane = dict([])
+    plane['origin'] = curve_pt
+    plane['xvec'] = tan_vector
+    plane['yvec'] = normal_vector   
+    return plane
 
 def fit_nurbs(shoreline,degree):
     #convert shortest_shoreline into a list of tuples
     pline = [tuple(x) for x in shoreline]
 
     # Do global curve interpolation
-    crv = fitting.interpolate_curve(pline, 3)
+    #crv = fitting.interpolate_curve(pline, degree)
+    crv = fitting.approximate_curve(pline, degree, ctrlpts_size=24, centripetal=False)
     return crv
 
 def tangent_dict(curve_points,tangents,extension_length):
@@ -231,4 +326,79 @@ def tangent_dict(curve_points,tangents,extension_length):
                                          [ curve_points[i][0]+(tangents[i][0]*2), curve_points[i][1]+(tangents[i][0]*2) ]])
 
     return tangent_dict
+ 
+def closest_point_on_curve(crv,delta,sample_point):
+    """
+    Get the closest point on a nurbs curve to a sample point
+
+    Arguments:
+    -----------
+    crv: bezier curve
+    delta: float
+        spacing to evaluate curvec
+    sample_point: array
+        x and y coordinates of the sample point
+
+    Returns:
+    -----------
+    closest_point: array
+        x and y coordinates of the closest point on the curve
+    """
+    crv.delta = delta
+    curve_points = crv.evalpts
+    #create list numbers from 0 to 1 with 0.01 increments
+    t_values = np.arange(0,1,delta)
+
+    #calculate the distance between the sample point and the first point on the curve
+    distance = np.sqrt((curve_points[0][0]-sample_point[0])**2 + (curve_points[0][1]-sample_point[1])**2)
+    #set the first point as the closest point
+    closest_point = curve_points[0]
+    closest_point_t = t_values[0]
+
+    #loop through the curve points and check if the distance to the sample point is smaller
+    for i in range(1,len(curve_points)):
+        new_distance = np.sqrt((curve_points[i][0]-sample_point[0])**2 + (curve_points[i][1]-sample_point[1])**2)
+        if new_distance < distance:
+            distance = new_distance
+            closest_point = curve_points[i]
+            closest_point_t = t_values[i]
+
+    return closest_point,closest_point_t
+
+def get_plane_coordinates(point,plane):
+    """
+    get the coordinates of a point in a plane
+
+    Arguments:
+    -----------
+    point: list
+        x and y coordinates of the point
+    plane: dict
+        dictionary with the origin, x and y vectors
+
+    Returns:
+    -----------
+    coordinates: list
+        x and y coordinates of the point in the plane
+    """
+    #get the origin
+    origin = plane['origin']
+    #get the x and y vectors
+    xvec = plane['xvec']
+    yvec = plane['yvec']
+
+    #subtract the origin from the point
+    tanslated_point = np.array([point[0]-origin[0],point[1]-origin[1]])
+    #get angle of xvec
+    angle = np.arctan2(xvec[1], xvec[0])
+
+    #rotate translated point by -angle
+    rotation_matrix = np.array([[np.cos(-angle), -np.sin(-angle)], [np.sin(-angle), np.cos(-angle)]])
+    rotated_point = np.dot(rotation_matrix,tanslated_point)
+
+
+    # #get the coordinates
+    # coordinates = np.array([origin[0]+(point[0]*xvec[0])+(point[1]*yvec[0]),
+    #                         origin[1]+(point[0]*xvec[1])+(point[1]*yvec[1])])
     
+    return rotated_point
