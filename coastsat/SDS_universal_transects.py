@@ -7,28 +7,12 @@ Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 
 # load modules
 import os
+import csv
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
-import pytz
-import pdb
-
-# other modules
-import skimage.transform as transform
-from pylab import ginput
-from scipy import stats
-
-# CoastSat modules
-from coastsat import SDS_tools
 
 #nurbs module
 import geomdl
 from geomdl import fitting
-
-# Global variables
-DAYS_IN_YEAR = 365.2425
-SECONDS_IN_DAY = 24*3600
 
 ###################################################################################################
 # working with polylines
@@ -208,7 +192,7 @@ def get_normal_vector_along_nurbs(crv,delta):
 
 def get_planes_along_nurbs(crv,delta):
     """
-    Get the normal vectors along a nurbs curve
+    Get planes along a nurbs curve
 
     Arguments:
     -----------
@@ -297,13 +281,17 @@ def get_plane_along_nurbs(crv,t_val):
     plane['yvec'] = normal_vector   
     return plane
 
-def fit_nurbs(shoreline,degree):
-    #convert shortest_shoreline into a list of tuples
+def fit_nurbs(shoreline,degree,size=24,periodic=False):
+    #if periodic, set the last point equal to the first point
+    if periodic:
+        shoreline[len(shoreline)-1] = shoreline[0]
+
+    #convert shoreline into a list of tuples
     pline = [tuple(x) for x in shoreline]
 
     # Do global curve interpolation
     #crv = fitting.interpolate_curve(pline, degree)
-    crv = fitting.approximate_curve(pline, degree, ctrlpts_size=24, centripetal=False)
+    crv = fitting.approximate_curve(pline, degree, ctrlpts_size=size, centripetal=False)
     return crv
 
 def tangent_dict(curve_points,tangents,extension_length):
@@ -327,6 +315,150 @@ def tangent_dict(curve_points,tangents,extension_length):
 
     return tangent_dict
  
+###################################################################################################
+# cchecking ditances along nurbs plane based transects
+###################################################################################################
+def closest_point_in_plane_axis(pts,plane,xweight=100):
+    """
+    Get the closest point from a set of pts to a plane, with a weight on the x-axis
+
+    Arguments:
+    -----------
+    pts: list
+        x and y coordinates of points
+    plane: dict
+        origin, xaxis and yaxis of the plane
+
+    Returns:
+    -----------
+    closest_point: array
+        x and y coordinates of the closest point on the curve
+    """
+
+    #calculate the distance between the sample point and the first point on the curve
+    pt1 = get_plane_coordinates(pts[0],plane)
+    distance = np.sqrt(pt1[0]**2 + pt1[1]**2)
+    pt1[0] = pt1[0]*xweight
+    weighted_distance = np.sqrt(pt1[0]**2 + pt1[1]**2)
+ 
+    #set the first point as the closest point
+    closest_point = pts[0]
+
+    #loop through the curve points and check if the distance to the sample point is smaller
+    for i in range(1,len(pts)):
+        pt = get_plane_coordinates(pts[i],plane) #set new point to check
+        new_distance = np.sqrt((pt[0])**2 + (pt[1])**2)
+        pt[0] = pt[0]*xweight #add weight to x-axis
+        new_weighted_distance = np.sqrt((pt[0])**2 + (pt[1])**2)
+        if new_weighted_distance < weighted_distance:
+            distance = new_distance
+            closest_point = pts[i]
+
+    return closest_point,distance
+
+def record_shoreline_offsets(output,settings,offsets_path):
+    """
+    record relative offsets to reference nurbs for all shorelines
+
+    Arguments:
+    -----------
+    output: dict with all properties for littoral zone
+        x and y coordinates of points
+    plane: dict
+        origin, xaxis and yaxis of the plane
+
+    Returns:
+    -----------
+    updated reference crv: nurbs curve
+    """
+    shorelines = output['shorelines']
+    dates = output['dates']
+    ref_crv = settings['reference_nurbs']
+    ref_planes = get_planes_along_nurbs(ref_crv,settings['delta'])
+    offsets = []
+
+    #delete file if it exists
+    if os.path.isfile(offsets_path):
+        os.remove(offsets_path)
+
+    for i in range(len(shorelines)):
+        try:
+            print('calcualting shoreline %d' % i)
+            #get offsets
+            new_pts = []
+            distances = [str(dates[i])]
+        
+            for j in range(len(ref_planes)):
+                #get closest point on the reference plane
+                closest_point,distance = closest_point_in_plane_axis(shorelines[i],ref_planes[j])
+                new_pts.append(closest_point)
+                distances.append(str(distance))    
+
+            #update ref crv
+            if len(new_pts) == len(ref_planes): #only updated the reference if all points were found
+                try:
+
+                    ref_crv = fit_nurbs(new_pts,3,periodic=settings['periodic'])
+                    # if settings['periodic']:#if set to periodic, make sure ends meet
+                    #     new_pts[len(new_pts)-1] = new_pts[0]
+                    # ref_crv = fitting.interpolate_curve(new_pts, 3)
+
+                    ref_planes = get_planes_along_nurbs(ref_crv,settings['delta'])
+
+                except Exception as e:
+                    print("did not update ref curve for shoreline: "+ str(i))
+                    print(str(e))
+                    continue 
+            else:
+                raise Exception('failed to find all points')
+            
+            #write to csv
+            res = add_line_to_csv(distances,offsets_path)
+            if res == False:
+                raise Exception('failed to write line: '+ str(i))
+            
+        except Exception as e:
+            print("failed to process shoreline for date: "+ str(dates[i]))
+            print(str(e))
+            continue   
+    return ref_crv
+
+def add_line_to_csv(newline,path):
+    """
+    add a line to a csv file
+
+    Arguments:
+    -----------
+    newline: array
+        offsets to add as a new row
+    path: string
+        path to the csv file
+
+    Returns:
+    -----------
+    """
+    try:
+        #check if file exists
+        if os.path.isfile(path):
+            #open file
+            with open(path, 'a',newline='') as f:
+                #create a writer
+                writer = csv.writer(f, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                #write the row
+                writer.writerow(newline)
+        else:
+            #create a new file
+            with open(path, 'w',newline='') as f:
+                #create a writer
+                writer = csv.writer(f, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                #write the row
+                writer.writerow(newline)
+        return True
+    except Exception as e:
+        print("failed to add line: "+ newline)
+        print(str(e))
+        return False
+
 def closest_point_on_curve(crv,delta,sample_point):
     """
     Get the closest point on a nurbs curve to a sample point
@@ -395,10 +527,67 @@ def get_plane_coordinates(point,plane):
     #rotate translated point by -angle
     rotation_matrix = np.array([[np.cos(-angle), -np.sin(-angle)], [np.sin(-angle), np.cos(-angle)]])
     rotated_point = np.dot(rotation_matrix,tanslated_point)
-
-
-    # #get the coordinates
-    # coordinates = np.array([origin[0]+(point[0]*xvec[0])+(point[1]*yvec[0]),
-    #                         origin[1]+(point[0]*xvec[1])+(point[1]*yvec[1])])
     
     return rotated_point
+
+###################################################################################################
+# removing coastlines with large gaps
+###################################################################################################
+
+def get_max_distance_between_polyline_points(shoreline):
+    """
+    Get the maximum distance between two points along a polyline
+
+    Arguments:
+    -----------
+    shoreline: array
+        x and y coordinates of the shoreline
+
+    Returns:
+    -----------
+    max_distance: float
+        maximum distance between two points along the polyline
+    """
+    max_distance = 0
+    for i in range(len(shoreline)-1):
+        distance = np.sqrt((shoreline[i][0]-shoreline[i+1][0])**2 + (shoreline[i][1]-shoreline[i+1][1])**2)
+        if distance > max_distance:
+            max_distance = distance
+
+    return max_distance
+
+def remove_gaps(output,max_dist):
+    """
+    Function to remove from the output dictionnary entries containing shorelines with gaps.
+   Arguments:
+    -----------
+        output: dict
+            contains output dict with shoreline and metadata
+        
+    Returns:    
+    -----------
+        output_no_gaps: dict
+            contains the updated dict where gaps
+        
+    """
+    gaps = 0
+    plines  = output['shorelines'].copy()
+    output_no_duplicates = dict([])
+
+    # find indices of shorelines to be removed
+    idx = []
+    for i in range(len(plines)):
+        gap_distance = get_max_distance_between_polyline_points(plines[i])
+        if gap_distance < max_dist:
+            idx.append(i)
+
+    output_filtered = dict([])
+    for key in output.keys():
+        output_filtered[key] = [output[key][i] for i in idx]
+    print('%d shorelines with gaps removed' % (len(plines)-len(idx)))
+    return output_filtered
+
+
+
+
+
