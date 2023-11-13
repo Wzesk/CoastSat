@@ -794,7 +794,9 @@ def get_reference_sl(metadata, settings):
 
         # decide if the image if good enough for digitizing the shoreline
         ax.set_title('Press <right arrow> if image is clear enough to digitize the shoreline.\n' +
-                  'If the image is cloudy press <left arrow> to get another image', fontsize=14)
+                  'If the image is cloudy press <left arrow> to get another image.\n'+
+                  'Select points clockwise (for closed curve) or in order with the land\n'+
+                  'to the right of the shorline for an open curve.', fontsize=14)
         # set a key event to accept/reject the detections (see https://stackoverflow.com/a/15033071)
         # this variable needs to be immuatable so we can access it after the keypress event
         skip_image = False

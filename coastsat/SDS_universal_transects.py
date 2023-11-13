@@ -315,8 +315,9 @@ def tangent_dict(curve_points,tangents,extension_length):
 
     return tangent_dict
  
+
 ###################################################################################################
-# cchecking ditances along nurbs plane based transects
+# checking ditances along nurbs plane based transects
 ###################################################################################################
 def closest_point_in_plane_axis(pts,plane,xweight=1):
     """
@@ -583,8 +584,4 @@ def remove_gaps(output,max_dist):
         output_filtered[key] = [output[key][i] for i in idx]
     print('%d shorelines with gaps removed' % (len(plines)-len(idx)))
     return output_filtered
-
-
-
-
 
