@@ -281,7 +281,7 @@ def get_plane_along_nurbs(crv,t_val):
     plane['yvec'] = normal_vector   
     return plane
 
-def fit_nurbs(shoreline,degree,size=24,periodic=False):
+def fit_nurbs(shoreline,degree=3,size=24,periodic=False):
     #if periodic, set the last point equal to the first point
     if periodic:
         shoreline[len(shoreline)-1] = shoreline[0]
@@ -318,7 +318,7 @@ def tangent_dict(curve_points,tangents,extension_length):
 ###################################################################################################
 # cchecking ditances along nurbs plane based transects
 ###################################################################################################
-def closest_point_in_plane_axis(pts,plane,xweight=100):
+def closest_point_in_plane_axis(pts,plane,xweight=1):
     """
     Get the closest point from a set of pts to a plane, with a weight on the x-axis
 
@@ -334,26 +334,23 @@ def closest_point_in_plane_axis(pts,plane,xweight=100):
     closest_point: array
         x and y coordinates of the closest point on the curve
     """
-
     #calculate the distance between the sample point and the first point on the curve
     pt1 = get_plane_coordinates(pts[0],plane)
-    distance = np.sqrt(pt1[0]**2 + pt1[1]**2)
-    pt1[0] = pt1[0]*xweight
-    weighted_distance = np.sqrt(pt1[0]**2 + pt1[1]**2)
- 
+    distance = pt1[1]
+    weighted_distance =  np.sqrt((pt1[0]*xweight)**2 + pt1[1]**2)
+
     #set the first point as the closest point
     closest_point = pts[0]
 
     #loop through the curve points and check if the distance to the sample point is smaller
-    for i in range(1,len(pts)):
+    for i in range(1,len(pts)):    
         pt = get_plane_coordinates(pts[i],plane) #set new point to check
-        new_distance = np.sqrt((pt[0])**2 + (pt[1])**2)
-        pt[0] = pt[0]*xweight #add weight to x-axis
-        new_weighted_distance = np.sqrt((pt[0])**2 + (pt[1])**2)
+        new_distance = pt[1]
+        new_weighted_distance = np.sqrt((pt[0]*xweight)**2 + (pt[1])**2)
         if new_weighted_distance < weighted_distance:
+            weighted_distance = new_weighted_distance
             distance = new_distance
             closest_point = pts[i]
-
     return closest_point,distance
 
 def record_shoreline_offsets(output,settings,offsets_path):
@@ -381,9 +378,10 @@ def record_shoreline_offsets(output,settings,offsets_path):
     if os.path.isfile(offsets_path):
         os.remove(offsets_path)
 
+    print('calcualting %d shorelines' % len(shorelines))
+    pts_out = []
     for i in range(len(shorelines)):
         try:
-            print('calcualting shoreline %d' % i)
             #get offsets
             new_pts = []
             distances = [str(dates[i])]
@@ -393,24 +391,22 @@ def record_shoreline_offsets(output,settings,offsets_path):
                 closest_point,distance = closest_point_in_plane_axis(shorelines[i],ref_planes[j])
                 new_pts.append(closest_point)
                 distances.append(str(distance))    
+            #print('calculated %d pts' % len(new_pts)) 
 
-            #update ref crv
-            if len(new_pts) == len(ref_planes): #only updated the reference if all points were found
+            #update ref crv only updated the reference if all points were found
+            if len(new_pts) == len(ref_planes): 
                 try:
 
-                    ref_crv = fit_nurbs(new_pts,3,periodic=settings['periodic'])
-                    # if settings['periodic']:#if set to periodic, make sure ends meet
-                    #     new_pts[len(new_pts)-1] = new_pts[0]
-                    # ref_crv = fitting.interpolate_curve(new_pts, 3)
-
+                    ref_crv = fit_nurbs(new_pts,degree=3,size=25,periodic=settings['periodic'])
                     ref_planes = get_planes_along_nurbs(ref_crv,settings['delta'])
 
                 except Exception as e:
-                    print("did not update ref curve for shoreline: "+ str(i))
+                    print("error updating ref curve for shoreline: "+ str(i))
                     print(str(e))
                     continue 
+                #print('Updated ref curve at shoreline: '+ str(i))
             else:
-                raise Exception('failed to find all points')
+                print('Did not updated ref curve at shoreline, was not able to generate enough new points: '+ str(i))
             
             #write to csv
             res = add_line_to_csv(distances,offsets_path)
@@ -420,8 +416,9 @@ def record_shoreline_offsets(output,settings,offsets_path):
         except Exception as e:
             print("failed to process shoreline for date: "+ str(dates[i]))
             print(str(e))
-            continue   
-    return ref_crv
+            continue  
+        pts_out =  new_pts 
+    return ref_crv,pts_out
 
 def add_line_to_csv(newline,path):
     """
