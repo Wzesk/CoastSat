@@ -449,6 +449,12 @@ def add_line_to_csv(newline,path):
             with open(path, 'w',newline='') as f:
                 #create a writer
                 writer = csv.writer(f, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                #create the first line with column names
+                columns = ['time']
+                for i in range(len(newline)-1):
+                    columns.append('T_'+str(i+1))
+                #write the coumn names
+                writer.writerow(columns)
                 #write the row
                 writer.writerow(newline)
         return True
