@@ -9,6 +9,8 @@ Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 import os
 import csv
 import numpy as np
+from datetime import datetime, timedelta
+import pandas as pd
 
 #nurbs module
 import geomdl
@@ -385,7 +387,7 @@ def record_shoreline_offsets(output,settings,offsets_path):
         try:
             #get offsets
             new_pts = []
-            distances = [str(dates[i])]
+            distances = [datetime.strftime(dates[i],'%Y-%m-%d')] # [str(dates[i])] 
         
             for j in range(len(ref_planes)):
                 #get closest point on the reference plane
@@ -462,6 +464,39 @@ def add_line_to_csv(newline,path):
         print("failed to add line: "+ newline)
         print(str(e))
         return False
+
+def infill_missing_days(path):
+    #read csv
+    with open(path, newline='') as f:
+        reader = csv.reader(f)
+        data = list(reader)
+        infilled_data = [data[0]]
+    #loop through the rows and check the first column for missing days, if found, add a new row
+    for i in range(1,len(data)-1):
+        infilled_data.append(data[i])
+        #convert date string into a datetime object
+        current_date = datetime.strptime(data[i][0],'%Y-%m-%d')
+        #get the next date
+        next_date = datetime.strptime(data[i+1][0],'%Y-%m-%d')
+        #check how many days are missing 
+        missing = next_date - current_date
+        print(str(next_date),str(current_date),missing.days)
+        if missing.days > 1:
+            for m in range(missing.days - 1):
+                #add a new row
+                insert_date = current_date + timedelta(days=(m+1))
+                new_row = [datetime.strftime(insert_date,'%Y-%m-%d')]
+                for j in range(len(data[i])-1):
+                    new_row.append('')
+                ##insert the new row
+                infilled_data.append(new_row)
+    #write ifilled data to csv
+    with open(path, 'w',newline='') as f:
+        #create a writer
+        writer = csv.writer(f, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        for i in range(len(infilled_data)):
+            writer.writerow(infilled_data[i])
+
 
 def closest_point_on_curve(crv,delta,sample_point):
     """
