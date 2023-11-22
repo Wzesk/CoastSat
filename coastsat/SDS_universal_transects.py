@@ -480,7 +480,6 @@ def infill_missing_days(path):
         next_date = datetime.strptime(data[i+1][0],'%Y-%m-%d')
         #check how many days are missing 
         missing = next_date - current_date
-        print(str(next_date),str(current_date),missing.days)
         if missing.days > 1:
             for m in range(missing.days - 1):
                 #add a new row
