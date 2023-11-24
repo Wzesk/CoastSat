@@ -56,7 +56,6 @@ def extract_sub_images(original_image, sub_image_size, min_overlap):
     #inpaint missing pixels
     img_array = infill_missing_pixels(np.array(img), threshold=10, inpaint_radius=3, inpaint_method=cv2.INPAINT_TELEA)
 
-    print(img_array.shape)
     print('x_steps='+str(x_steps)+', y_steps='+str(y_steps)+', x_step_size='+str(x_step_size)+', y_step_size='+str(y_step_size))
     img = Image.fromarray(img_array)
 
@@ -64,29 +63,42 @@ def extract_sub_images(original_image, sub_image_size, min_overlap):
     sub_images = []
     padding_list = []
     # Loop over the image to extract sub-images
+    print("Extracting sub-images...")
+    print("original image size: "+str(img.size))
+    print("sub-image size: "+str(sub_image_size))
+
     x = 0
-    while x <= (width-sub_image_size):
+    while x < x_steps:#(width-sub_image_size):
         y = 0
-        while y <= (height-sub_image_size):
+        while y < y_steps:#(height-sub_image_size):
+            if((x*x_step_size)+sub_image_size > width):
+                xpad = width - sub_image_size
+            else:
+                xpad = x*x_step_size
+            if((y*y_step_size)+sub_image_size > height):
+                ypad = height - sub_image_size
+            else:
+                ypad = y*y_step_size
+
             # Compute the dimensions of the sub-image
-            right = min(x + sub_image_size, width)
-            bottom = min(y + sub_image_size, height)
+            right = min(xpad + sub_image_size, width)
+            bottom = min(ypad + sub_image_size, height)
 
             # Extract and add the sub-image to the list
-            sub_image = img.crop((x, y, right, bottom))
-            print('sub image at: x='+str(x)+', y='+str(y))
+            sub_image = img.crop((xpad, ypad, right, bottom))
             sub_images.append(sub_image)
 
             # Compute the padding needed to make the sub-image the same size as the others
             padding = {
-                        "left":x,
-                        "right":width - (x+sub_image_size),
-                        "top":y,
-                        "bottom":height - (y+sub_image_size)
+                        "left":xpad,
+                        "right":width - (xpad+sub_image_size),
+                        "top":ypad,
+                        "bottom":height - (ypad+sub_image_size)
                        }
+            print(padding)
             padding_list.append(padding)
-            y += y_step_size
-        x+=x_step_size
+            y += 1#y_step_size
+        x+=1#x_step_size
 
 
     return sub_images, padding_list,img.size
