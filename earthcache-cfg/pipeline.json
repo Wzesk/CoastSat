@@ -1,0 +1,51 @@
+{
+  "name": "australia",
+  "start_date": "2000-01-01",
+  "end_date": "2001-01-01",
+  "budget_per_km2": 0,
+  "max_cost": 0,
+  "cloud_cover_percentage": 100,
+  "min_aoi_coverage_percentage": 0,
+  "resolution_low": 30,
+  "resolution_high": 10,
+  "interval": "30d",
+  "result_delivery": {
+    "max_latency": "0d",
+    "priorities": [
+      "lowest_cost"
+    ]
+  },
+ 
+  "aoi": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          113.00578746510996,
+          -11.039740390223315
+        ],
+        [
+          113.00578746510996,
+          -39.37657293319883
+        ],
+        [
+          157.56325745636144,
+          -39.37657293319883
+        ],
+        [
+          157.56325745636144,
+          -11.039740390223315
+        ],
+        [
+          113.00578746510996,
+          -11.039740390223315
+        ]
+      ]
+    ]
+  },
+  "output": {
+    "id": "a8fc3dde-a3e8-11e7-9793-ae4260ee3b4b", 
+    "format": "geotiff",
+    "mosaic": "stitched"
+  }
+}
