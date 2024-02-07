@@ -1,3 +1,9 @@
+"""
+CREDIT ACKNOWLEDGEMENT: a lot of the code in this file comes from a public
+github repository which can be found at: https://github.com/chris010970/earthcache    
+
+"""
+
 import os
 import wget
 import uuid
