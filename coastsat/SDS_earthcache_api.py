@@ -4,9 +4,12 @@ import sys
 
 from coastsat import SDS_earthcache_client
 
-#output ID should be 4 band
-
-def retrieve_images_earthcache(api_key, pipeline_name, aoi, start_date, end_date):
+# use this function to directly create a pipeline
+# the 'image_type_id' parameter refers to what type of
+# images you want for the output
+# these are the available id's: https://support.skywatch.com/hc/en-us/articles/7297565063067-Available-Outputs
+def retrieve_images_earthcache(api_key, name, aoi, start_date, end_date, image_type_id, **kwargs):
+  pipeline_name = name
   
   # define repo name and get root working directory
   repo = 'CoastSat'
@@ -28,29 +31,40 @@ def retrieve_images_earthcache(api_key, pipeline_name, aoi, start_date, end_date
                                           end_date=end_date,
                                           aoi=aoi,
                                           output={
-                                             "id": "a8fc3dde-a3e8-11e7-9793-ae4260ee3b4b",
+                                             "id": image_type_id,
                                               "format": "geotiff",
                                               "mosaic": "stitched"
-                                          }
+                                          },
+                                          **kwargs
                                         )
   print(status, result)
   
-  global pipeline_id
   pipeline_id = client.getPipelineIdFromName(pipeline_name)
   status, result = client.getPipeline( pipeline_id )
   print(status, result)
   
   
-def checkStatus():
+# use this function to check the status of a given pipeline
+# 200 is a good result!  
+def checkStatus(pipeline_name):
   global client
-  global pipeline_id
-  global status, result
+  pipeline_id = client.getPipelineIdFromName(pipeline_name)
   status, result = client.getIntervalResults( pipeline_id )
   print(status, result)
   
-    
-def download_images():
-  root_path = 'Users/Tishya/Documents/CoastSat/earthcache-cfg'
+
+# call this function to get the images once the pipeline is ready
+# make sure to pass in the name of the pipeline    
+def download_images(pipeline_name):
+  global client
+  id = client.getPipelineIdFromName(pipeline_name)
+  
+  status, result = client.getIntervalResults(id)
+  if(status == 404):
+    print("results not found, most likely an invalid id!")
+    return
+  
+  root_path = pipeline_name + '/images'
   images = []
 
   # convert to dataframe

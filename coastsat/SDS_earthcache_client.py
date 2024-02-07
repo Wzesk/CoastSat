@@ -27,12 +27,12 @@ class EcClient:
         
         # dictionary of api uris
         self._uris = {  'archive' : 'https://api.skywatch.co/earthcache/archive',
-                        'base' : 'https://api.skywatch.co/earthcache' }
+                        'base' : 'https://api.skywatch.co/earthcache' ,
+                        'pipeline_price': 'https://api.skywatch.co/earthcache/pipelines/calculate'}
 
         # load template json objects from file            
         self._templates = dict()
         for key in [ 'search', 'pipeline', 'pipeline-search' ]:
-
             with open( os.path.join( cfg_path, f'{key}.json' ), ) as f:
                 self._templates[ key ] = json.load( f )
 
@@ -42,78 +42,10 @@ class EcClient:
         return
 
 
-    def postSearch( self, aoi, window, **kwargs ):
+# main functions!
 
-        """
-        post search
-        """
-
-        def getPayload():
-
-            """
-            get payload
-            """
-
-            # configure payload
-            payload =  self._templates[ 'search' ]
-            payload[ 'location' ] = aoi
-
-            # get time range
-            payload[ 'start_date' ] = window[ 'start_date' ]
-            payload[ 'end_date' ] = window[ 'end_date' ]
-
-            # for each template field
-            for key in payload.keys():
-
-                # replace tenplate values with kwargs
-                value = kwargs.get( key )
-                if value is not None:
-                    payload[ key ] = value
-
-            return payload
-
-        # get request
-        search_id = None
-        request = self.initRequest( self._uris[ 'archive' ] + '/search' )
-
-        # get payload
-        payload = json.dumps( getPayload() )
-
-        # prepare post
-        request.setopt( pycurl.POST, 1)
-        request.setopt( pycurl.READDATA, StringIO( payload ) )
-        request.setopt( pycurl.POSTFIELDSIZE, len( payload ) )
-
-        # capture response
-        response = BytesIO()
-        request.setopt( pycurl.WRITEFUNCTION, response.write )
-
-        # execute request
-        request.perform()
-
-        # get status 
-        status = request.getinfo(pycurl.RESPONSE_CODE ) 
-        if status == 200:
-
-            # parse response for search id
-            obj = json.loads( response.getvalue() )
-            if 'data' in obj:
-                search_id = obj[ 'data' ][ 'id' ]
-
-        # return status code and response 
-        return search_id, status, json.loads( response.getvalue() )
-
-
-    def getSearch( self, search_id ):
-
-        """
-        get search
-        """
-
-        # execute get request
-        return self.sendRequest( self._uris[ 'archive' ] + f'/search/{search_id}/search_results' )
-
-
+    # runs a search based on the given area of interest 
+    # https://api-docs.earthcache.com/#tag/post
     def processSearch( self, aoi, window, **kwargs ):
 
         """
@@ -139,111 +71,11 @@ class EcClient:
                 # delay between get requests
                 time.sleep( delay )
         
-        return status, result, search_id
-
-
-    def getPipelines( self ):
-
-        """
-        get pipelines
-        """
-
-        # run get request
-        return self.sendRequest( self._uris[ 'base' ] + '/pipelines' )
-
-
-    def getPipeline( self, pipeline_id ):
-
-        """
-        get pipeline associated with id
-        """
-
-        # run get request
-        return self.sendRequest( self._uris[ 'base' ] + f'/pipelines/{pipeline_id}' )
-
-
-    def getPipelineIdFromName( self, name ):
-
-        """
-        get pipeline associated with id
-        """
-
-        pipeline_id = None
-
-        # run get request
-        status, result = self.sendRequest( self._uris[ 'base' ] + f'/pipelines' )
-        if status == 200:
-
-            # parse into dataframe
-            df = pd.DataFrame( result[ 'data'] )
-            df = df[ df['name'] == name ]
-
-            # get id from row
-            if len( df == 1 ):
-                pipeline_id = df[ 'id' ].iloc[ 0 ]
-        
-        return pipeline_id
-
-
-    def deletePipeline( self, pipeline_id ):
-
-        """
-        delete pipeline
-        """
-
-        # run custom delete request
-        return self.sendRequest( self._uris[ 'base' ] + f'/pipelines/{pipeline_id}', action='DELETE' )
-
-
-    def createPipeline( self, name, start_date, end_date, aoi, **kwargs ):
-        
-        def getPayloadForPipeline():
-
-            """
-            get payload
-            """
-
-            # configure payload
-            payload = self._templates[ 'pipeline' ]
-
-            # assign max cost
-            payload[ 'max_cost' ] = self._max_cost
-            payload['name'] = name
-            payload['start_date'] = start_date
-            payload['end_date'] = end_date
-            payload['aoi'] = aoi
-
-            # for each template field
-            for key in list( payload.keys() ):
-
-                # replace tenplate values with kwargs
-                value = kwargs.get( key )
-                if value is not None:
-                    payload[ key ] = value
-
-            return payload
-
-        # create request
-        request = self.initRequest( self._uris[ 'base' ] + '/pipelines' )
-
-        # get payload
-        payload = json.dumps( getPayloadForPipeline() )
-
-        # prepare post
-        request.setopt( pycurl.POST, 1)
-        request.setopt( pycurl.READDATA, StringIO( payload ) )
-        request.setopt( pycurl.POSTFIELDSIZE, len( payload ) )
-
-        # capture response
-        response = BytesIO()
-        request.setopt( pycurl.WRITEFUNCTION, response.write )
-
-        # execute request
-        request.perform()
-
-        # return status code and response
-        return request.getinfo(pycurl.RESPONSE_CODE ), json.loads( response.getvalue() )
+        return status, result, search_id    
     
+
+    # allows you to create a pipeline directly from a previously run search
+    # https://api-docs.earthcache.com/#tag/pipelines/operation/PipelineCreate
     def createPipelineFromSearch( self, search_id, search_results, **kwargs ):
 
         """
@@ -297,6 +129,221 @@ class EcClient:
         # return status code and response
         return request.getinfo(pycurl.RESPONSE_CODE ), json.loads( response.getvalue() )
 
+    # creates the pipeline with the given parameters
+    def createPipeline( self, name, start_date, end_date, aoi, **kwargs ):
+        
+        def getPayloadForPipeline():
+
+            """
+            get payload
+            """
+
+            # configure payload
+            payload = self._templates[ 'pipeline' ]
+
+            # assign max cost
+            payload[ 'max_cost' ] = self._max_cost
+            payload['name'] = name
+            payload['start_date'] = start_date
+            payload['end_date'] = end_date
+            payload['aoi'] = aoi
+
+            # for each template field
+            for key in list( payload.keys() ):
+
+                # replace tenplate values with kwargs
+                value = kwargs.get( key )
+                if value is not None:
+                    payload[ key ] = value
+
+            return payload
+
+        # create request
+        request = self.initRequest( self._uris[ 'base' ] + '/pipelines' )
+
+        # get payload
+        payload = json.dumps( getPayloadForPipeline() )
+
+        # prepare post
+        request.setopt( pycurl.POST, 1)
+        request.setopt( pycurl.READDATA, StringIO( payload ) )
+        request.setopt( pycurl.POSTFIELDSIZE, len( payload ) )
+
+        # capture response
+        response = BytesIO()
+        request.setopt( pycurl.WRITEFUNCTION, response.write )
+
+        # execute request
+        request.perform()
+
+        # return status code and response
+
+    # still needs to be tested! 
+    # Calculate cost of area and intervals of a pipeline, 
+    # and the probability of collection of any tasking intervals
+    # https://api-docs.earthcache.com/#tag/pipelinePost 
+    def calculatePrice(self, resolution, location, start_date, end_date):
+        """
+        post search
+        """
+        
+
+        parameters =  {'resolution': resolution,
+                    'location': location,
+                    'start_date': start_date, 
+                    'end_date': end_date
+                    }
+
+
+        # get request
+        request = self.initRequest( self._uris['pipeline_price'])
+
+        # get payload
+        payload = json.dumps(parameters)
+
+        # prepare post
+        request.setopt( pycurl.POST, 1)
+        request.setopt( pycurl.READDATA, StringIO( payload ) )
+        request.setopt( pycurl.POSTFIELDSIZE, len( payload ) )
+
+        # capture response
+        response = BytesIO()
+        request.setopt( pycurl.WRITEFUNCTION, response.write )
+
+        # execute request
+        request.perform()
+
+        # get status 
+        status = request.getinfo(pycurl.RESPONSE_CODE ) 
+
+        # return status code and response 
+        return status
+    
+
+# helper functions!
+
+    def getSearch( self, search_id ):
+
+        """
+        get search
+        """
+
+        # execute get request
+        return self.sendRequest( self._uris[ 'archive' ] + f'/search/{search_id}/search_results' )
+
+    def getPipelines( self ):
+
+        """
+        get pipelines
+        """
+
+        # run get request
+        return self.sendRequest( self._uris[ 'base' ] + '/pipelines' )
+
+    def getPipeline( self, pipeline_id ):
+
+        """
+        get pipeline associated with id
+        """
+
+        # run get request
+        return self.sendRequest( self._uris[ 'base' ] + f'/pipelines/{pipeline_id}' )
+
+    def getPipelineIdFromName( self, name ):
+
+        """
+        get pipeline associated with id
+        """
+
+        pipeline_id = None
+
+        # run get request
+        status, result = self.sendRequest( self._uris[ 'base' ] + f'/pipelines' )
+        if status == 200:
+
+            # parse into dataframe
+            df = pd.DataFrame( result[ 'data'] )
+            df = df[ df['name'] == name ]
+
+            # get id from row
+            if len( df == 1 ):
+                pipeline_id = df[ 'id' ].iloc[ 0 ]
+        
+        return pipeline_id
+
+    def deletePipeline( self, pipeline_id ):
+
+        """
+        delete pipeline
+        """
+
+        # run custom delete request
+        return self.sendRequest( self._uris[ 'base' ] + f'/pipelines/{pipeline_id}', action='DELETE' )
+
+
+
+        return request.getinfo(pycurl.RESPONSE_CODE ), json.loads( response.getvalue() )
+    
+    def postSearch( self, aoi, window, **kwargs ):
+
+            """
+            post search
+            """
+
+            def getPayload():
+
+                """
+                get payload
+                """
+
+                # configure payload
+                payload =  self._templates[ 'search' ]
+                payload[ 'location' ] = aoi
+
+                # get time range
+                payload[ 'start_date' ] = window[ 'start_date' ]
+                payload[ 'end_date' ] = window[ 'end_date' ]
+
+                # for each template field
+                for key in payload.keys():
+
+                    # replace tenplate values with kwargs
+                    value = kwargs.get( key )
+                    if value is not None:
+                        payload[ key ] = value
+
+                return payload
+
+            # get request
+            search_id = None
+            request = self.initRequest( self._uris[ 'archive' ] + '/search' )
+
+            # get payload
+            payload = json.dumps( getPayload() )
+
+            # prepare post
+            request.setopt( pycurl.POST, 1)
+            request.setopt( pycurl.READDATA, StringIO( payload ) )
+            request.setopt( pycurl.POSTFIELDSIZE, len( payload ) )
+
+            # capture response
+            response = BytesIO()
+            request.setopt( pycurl.WRITEFUNCTION, response.write )
+
+            # execute request
+            request.perform()
+
+            # get status 
+            status = request.getinfo(pycurl.RESPONSE_CODE ) 
+            if status == 200:
+
+                # parse response for search id
+                obj = json.loads( response.getvalue() )
+                if 'data' in obj:
+                    search_id = obj[ 'data' ][ 'id' ]
+
+            # return status code and response 
+            return search_id, status, json.loads( response.getvalue() )
 
     def getIntervalResults( self, pipeline_id ):
 
@@ -306,7 +353,6 @@ class EcClient:
 
         # run get request
         return self.sendRequest( self._uris[ 'base' ] + f'/pipelines/{pipeline_id}/interval_results' )
-
 
     def getImages( self, results, out_path ):
 
@@ -358,7 +404,6 @@ class EcClient:
 
         return images
 
-
     def getOutputs( self ):
 
         """
@@ -367,7 +412,6 @@ class EcClient:
 
         # run get request
         return self.sendRequest( self._uris[ 'base' ] + f'/outputs' )
-
 
     def getOutputIdFromName( self, name ):
 
@@ -389,8 +433,7 @@ class EcClient:
             if len( df == 1 ):
                 output_id = df[ 'id' ].iloc[ 0 ]
         
-        return output_id
-            
+        return output_id     
 
     def getOutput( self, output_id ):
 
@@ -400,7 +443,6 @@ class EcClient:
 
         # run get request
         return self.sendRequest( self._uris[ 'base' ] + f'/outputs/{output_id}' )
-
 
     def initRequest( self, uri ):
 
@@ -417,7 +459,6 @@ class EcClient:
         request.setopt( pycurl.HTTPHEADER, self.getHeaderParams() ) 
 
         return request
-
 
     def sendRequest( self, uri, action='GET', status_ok=[ 200 ] ):
 
@@ -456,3 +497,4 @@ class EcClient:
                     'Content-Type: application/json',
                     'x-api-key: {key}'.format( key=self._api_key ) ]
 
+    
