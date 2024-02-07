@@ -177,6 +177,7 @@ class EcClient:
         request.perform()
 
         # return status code and response
+        return request.getinfo(pycurl.RESPONSE_CODE ), json.loads( response.getvalue() )
 
     # still needs to be tested! 
     # Calculate cost of area and intervals of a pipeline, 
@@ -217,7 +218,7 @@ class EcClient:
         status = request.getinfo(pycurl.RESPONSE_CODE ) 
 
         # return status code and response 
-        return status
+        return status, json.loads(response.getvalue())
     
 
 # helper functions!
@@ -484,7 +485,6 @@ class EcClient:
 
         # return status and response
         return request.getinfo(pycurl.RESPONSE_CODE), json.loads( response.getvalue() )
-
 
     def getHeaderParams( self ):
 
