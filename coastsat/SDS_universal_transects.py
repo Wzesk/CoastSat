@@ -356,6 +356,41 @@ def closest_point_in_plane_axis(pts,plane,xweight=1):
             closest_point = pts[i]
     return closest_point,distance
 
+def save_points_to_csv(pts,path):
+    """
+    save points to csv
+
+    Arguments:
+    -----------
+    pts: list
+        x and y coordinates of points
+    path: string
+        path to the csv file
+
+    Returns:
+    -----------
+    """
+    try:
+        #check if file exists
+        if os.path.isfile(path):
+            print("output file already exists, not saving")
+        else:
+            #create a new file
+            with open(path, 'w',newline='') as f:
+                #create a writer
+                writer = csv.writer(f, delimiter=',',quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                #create the first line with column names
+                columns = ['x','y']
+                #write the coumn names
+                writer.writerow(columns)
+                #write a row for each point
+                for i in range(len(pts)):
+                    writer.writerow(pts[i])
+        return True
+    except Exception as e:
+        print(str(e))
+        return False
+
 def record_shoreline_offsets(output,settings,offsets_path):
     """
     record relative offsets to reference nurbs for all shorelines
