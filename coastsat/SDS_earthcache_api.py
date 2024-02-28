@@ -71,13 +71,14 @@ def download_images(pipeline_name):
     print("results not found, most likely an invalid id!")
     return
   
-  root_path = pipeline_name + '/images'
+  root_path = 'data/' + pipeline_name
   images = []
 
   # convert to dataframe
   df = pd.DataFrame( result[ 'data' ] )
   for row in df.itertuples():
     out_path = os.path.join( root_path, row.id )
+    print(out_path)
     images.append( client.getImages( row.results, out_path ) )  
   
   return images
