@@ -198,7 +198,8 @@ class EcClient:
         parameters =  {'resolution': resolution,
                     'location': location,
                     'start_date': start_date, 
-                    'end_date': end_date
+                    'end_date': end_date,
+                    'interval': '1d'
                     }
 
 

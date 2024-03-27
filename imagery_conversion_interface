@@ -1,0 +1,13 @@
+TODO Item
+
+Documentation:  Document the different imagery formats we need.]
+how are the sentinel images stored for coastsat?
+What format do we get images from earthcache?
+What format do we need to do upsampling?
+
+We want to be able to convert images back and forth easily.  It is likely something like this already exists in a python library
+
+
+
+
+def transformimage

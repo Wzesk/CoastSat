@@ -56,7 +56,7 @@ def checkStatus(pipeline_name):
   global client
   pipeline_id = client.getPipelineIdFromName(pipeline_name)
   status, result = client.getIntervalResults( pipeline_id )
-  print(status, result)
+  return status, result
   
 
 # call this function to get the images once the pipeline is ready
