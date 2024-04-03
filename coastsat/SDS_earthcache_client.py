@@ -136,8 +136,11 @@ class EcClient:
         return request.getinfo(pycurl.RESPONSE_CODE ), json.loads( response.getvalue() )
 
     # creates the pipeline with the given parameters
-    def createPipeline( self, name, start_date, end_date, aoi, **kwargs ):
-        
+    def createPipeline( self, name, start_date, end_date, aoi, interval, resolution, **kwargs ):
+        resolution_high = 10
+        if(resolution == 'medium'):
+            resolution_high = 1.5
+
         def getPayloadForPipeline():
 
             """
@@ -153,6 +156,11 @@ class EcClient:
             payload['start_date'] = start_date
             payload['end_date'] = end_date
             payload['aoi'] = aoi
+            payload['interval'] = interval
+            payload['resolution_low'] = 30
+            payload['resolution_high'] = resolution_high
+            payload['cloud_cover_percentage'] = 25
+            payload['min_aoi_coverage_percentage'] = 75
 
             # for each template field
             for key in list( payload.keys() ):
@@ -189,7 +197,7 @@ class EcClient:
     # Calculate cost of area and intervals of a pipeline, 
     # and the probability of collection of any tasking intervals
     # https://api-docs.earthcache.com/#tag/pipelinePost 
-    def calculatePrice(self, resolution, location, start_date, end_date):
+    def calculatePrice(self, resolution, location, start_date, end_date,interval='30d'):
         """
         post search
         """
@@ -199,7 +207,7 @@ class EcClient:
                     'location': location,
                     'start_date': start_date, 
                     'end_date': end_date,
-                    'interval': '1d'
+                    'interval': interval
                     }
 
 

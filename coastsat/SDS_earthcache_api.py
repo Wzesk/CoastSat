@@ -24,11 +24,8 @@ def initialize(api_key):
 # the 'image_type_id' parameter refers to what type of
 # images you want for the output
 # these are the available id's: https://support.skywatch.com/hc/en-us/articles/7297565063067-Available-Outputs
-def retrieve_images_earthcache(api_key, name, aoi, start_date, end_date, image_type_id, **kwargs):
+def retrieve_images_earthcache(api_key, name, aoi, start_date, end_date, image_type_id, interval='30d', resolution='low', **kwargs):
   pipeline_name = name
-  
-  # we can change the resolution here
-  resolution = [ 'low' ]
   
   global client
   status, result = client.createPipeline(    
@@ -36,6 +33,8 @@ def retrieve_images_earthcache(api_key, name, aoi, start_date, end_date, image_t
                                           start_date=start_date,
                                           end_date=end_date,
                                           aoi=aoi,
+                                          interval=interval,
+                                          resolution=resolution,
                                           output={
                                              "id": image_type_id,
                                               "format": "geotiff",
