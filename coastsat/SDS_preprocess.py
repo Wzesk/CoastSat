@@ -525,7 +525,7 @@ def rescale_image_intensity(im, cloud_mask, prob_high):
 
     return im_adj
 
-# could use
+# could use -- only does one image
 def create_jpg(im_ms, cloud_mask, date, satname, filepath, use_matplotlib=True):
     """
     Saves a .jpg file with the RGB image as well as the NIR and SWIR1 grayscale images.
@@ -616,6 +616,7 @@ def create_jpg(im_ms, cloud_mask, date, satname, filepath, use_matplotlib=True):
         # save figure
         fig.savefig(os.path.join(filepath, date + '_' + satname + '.jpg'), dpi=150)
 
+# could use -- does entire set of images
 def save_jpg(metadata, settings, use_matplotlib=False):
     """
     Saves a .jpg image for all the images contained in metadata.

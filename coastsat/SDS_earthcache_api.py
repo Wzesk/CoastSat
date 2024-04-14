@@ -4,12 +4,13 @@
 """
 
 import os
+import shutil
 import pandas as pd
 import sys
 from osgeo import gdal
 import matplotlib.pyplot as plt
 import numpy as np
-from coastsat import SDS_earthcache_client
+# from coastsat import SDS_earthcache_client
 
 # always call this function first before using anything else
 # does an initial setup
@@ -100,6 +101,7 @@ def view_first_image(images):
 # best usage:
 # status, result, search_df, search_id = SDS_earthcache_api.search(__, __, __, ___)
 def search(aoi, window, resolution, **kwargs):
+  pass
   
   
 # allows you to create a pipeline directly from a previously run search
@@ -111,16 +113,64 @@ def search(aoi, window, resolution, **kwargs):
 # status, result = SDS_earthcache_api.create_pipeline_from_search(___, ___)
 # https://api-docs.earthcache.com/#tag/pipelines/operation/PipelineCreate
 
-  def create_pipeline_from_search(client, search_id, search_results):
-    
-    status, result = client.createPipelineFromSearch(search_id, search_results)
-    return status, result
+def create_pipeline_from_search(client, search_id, search_results):
+  status, result = client.createPipelineFromSearch(search_id, search_results)
+  return status, result
   
 # still needs to be tested! 
 # Calculate cost of area and intervals of a pipeline, 
 # and the probability of collection of any tasking intervals
 # https://api-docs.earthcache.com/#tag/pipelinePost 
-  def calculatePrice(client, resolution, location, start_date, end_date):
-  
+def calculatePrice(client, resolution, location, start_date, end_date):
     status, result = client.calculatePrice(resolution, location, start_date, end_date)
     return status, result
+  
+  
+# This function rearranges the downloaded images into the format that Coastsat
+# expects for some of their preprocessing functions.
+# args:
+  # Pass in the root directory with all of the downloaded files from the pipelines
+  # Pass in True if this is the first time this function is being called on the directory
+  # pass in False if it's not the first time this function is being called on the directory
+    # if passing in false, remember that the function expects for there to already be 
+    # an S2 folder in the passed in directory with a json_files and ms folder inside. 
+def format_downloads(directory, isFirstTime):
+    # create a new folder S2
+    # create new folders:
+      # meta
+      # ms
+      # swir
+      # mask    
+    print(os.path)
+    if(isFirstTime):
+      # TODO: this should be changed based on which satellite data was taken from.
+      # probably would need to look through the json file and create accordingly
+      satellite_path = os.path.join(directory, "S2")
+      os.mkdir(satellite_path)
+      meta_path = os.path.join(satellite_path, "json_files")
+      os.mkdir(meta_path)
+      meta_coastsat_path = os.path.join(satellite_path, "meta")
+      os.mkdir(meta_coastsat_path)
+      ms_path = os.path.join(satellite_path, "ms")
+      os.mkdir(ms_path)
+      os.mkdir(os.path.join(satellite_path, "mask"))
+      os.mkdir(os.path.join(satellite_path, "swir"))
+    else:
+      satellite_path = os.path.join(directory, "S2")
+      meta_path = os.path.join(satellite_path, "json_files")
+      meta_coastsat_path = os.path.join(satellite_path, "meta")
+      ms_path = os.path.join(satellite_path, "ms")
+      
+    for foldername, subfolders, filenames in os.walk(directory):
+      # Check if there is a TIF or JSON file in the current folder
+      if any(file.endswith('.json') for file in filenames) or any(file.endswith(('.tif')) for file in filenames):
+          # Move the image and JSON files to their respective folders in the root directory
+          for file in filenames:
+              if file.endswith('.json'):
+                if(not(os.path.exists(os.path.join(meta_path, file)))):
+                  shutil.move(os.path.join(foldername, file), meta_path)
+              elif file.endswith(('.tif')):
+                if(not(os.path.exists(os.path.join(ms_path, file)))):
+                  shutil.move(os.path.join(foldername, file), ms_path)
+
+    
