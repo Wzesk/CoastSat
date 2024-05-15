@@ -10,6 +10,8 @@ import sys
 from osgeo import gdal
 import matplotlib.pyplot as plt
 import numpy as np
+import json
+from datetime import datetime
 # from coastsat import SDS_earthcache_client
 
 # always call this function first before using anything else
@@ -134,7 +136,8 @@ def calculatePrice(client, resolution, location, start_date, end_date):
   # pass in False if it's not the first time this function is being called on the directory
     # if passing in false, remember that the function expects for there to already be 
     # an S2 folder in the passed in directory with a json_files and ms folder inside. 
-def format_downloads(directory, isFirstTime):
+  # Pass in the name of the site (like Ukulhas)
+def format_downloads(directory, isFirstTime, sitename):
     # create a new folder S2
     # create new folders:
       # meta
@@ -167,12 +170,45 @@ def format_downloads(directory, isFirstTime):
           # Move the image and JSON files to their respective folders in the root directory
           for file in filenames:
               if file.endswith('.json'):
-                # TODO: rename file here before moving
                 if(not(os.path.exists(os.path.join(meta_path, file)))):
                   shutil.move(os.path.join(foldername, file), meta_path)
               elif file.endswith(('.tif')):
                 if(not(os.path.exists(os.path.join(ms_path, file)))):
-                  # TODO: rename file here before moving
                   shutil.move(os.path.join(foldername, file), ms_path)
+    rename_files(meta_path, ms_path, sitename)
+                  
+# helper functions for format_downloads -- specifically renaming the files
+# --
+def get_image_date(json_file):
+     with open(json_file, 'r') as f:
+        data = json.load(f)
+        start_time = data["ProductInfo"]["PRODUCT_SCENE_RASTER_START_TIME"]
+        # Parse the start time string to extract the date
+        date = datetime.strptime(start_time, "%d-%b-%Y %H:%M:%S.%f")
+        # Format the date as YYYYMMDD
+        formatted_date = date.strftime('%Y-%m-%d-%H-%M-%S')
+        return formatted_date
+
+def rename_files(json_folder, tif_folder, sitename):
+    json_files = sorted(os.listdir(json_folder))
+    tif_files = sorted(os.listdir(tif_folder))
+
+    for json_file, tif_file in zip(json_files, tif_files):
+        if json_file.endswith('.json') and tif_file.endswith('.tif'):
+            # Get the date from the JSON file
+            date = get_image_date(os.path.join(json_folder, json_file))
+            
+            # Construct new filenames
+            new_json_name = f"{date}_S2_{sitename}.json"
+            new_tif_name = f"{date}_S2_{sitename}_ms.tif"
+            
+            # Rename JSON and TIFF files
+            os.rename(os.path.join(json_folder, json_file), os.path.join(json_folder, new_json_name))
+            os.rename(os.path.join(tif_folder, tif_file), os.path.join(tif_folder, new_tif_name))
+#--
 
     
+# This function goes through the json files provided by Earthcache
+# and creates text files that CoastSat expects for subsequent functions.    
+def extract_metadata(directory):
+  pass
