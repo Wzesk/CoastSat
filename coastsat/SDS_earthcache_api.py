@@ -177,7 +177,7 @@ def format_downloads(directory, isFirstTime, sitename):
                   shutil.move(os.path.join(foldername, file), ms_path)
     rename_files(meta_path, ms_path, sitename)
                   
-# helper functions for format_downloads -- specifically renaming the files
+# helper functions for format_downloads() -- specifically renaming the files
 # --
 def get_image_date(json_file):
      with open(json_file, 'r') as f:
@@ -209,6 +209,50 @@ def rename_files(json_folder, tif_folder, sitename):
 
     
 # This function goes through the json files provided by Earthcache
-# and creates text files that CoastSat expects for subsequent functions.    
-def extract_metadata(directory):
-  pass
+# and creates text files that CoastSat expects for subsequent functions. 
+# args:
+  # Pass in the directory with the json files of the specific site
+  # Pass in the directory where the text files will be stored
+# WARNING: THIS MUST BE CHANGED!
+# right now, a lot of this stuff is hardcoded for Ukulhas only.   
+def extract_metadata(json_directory, output_directory):
+    json_files = sorted(os.listdir(json_directory))
+
+    for json_file in json_files:
+        if json_file.endswith('.json'):
+            # Get the date from the JSON file
+            date = get_image_date(os.path.join(json_directory, json_file))
+            
+            # Construct new filenames with additional information
+            new_text_filename = os.path.splitext(json_file)[0] + "_ms.txt"
+          
+            # Construct full path for the output text file
+            output_text_path = os.path.join(output_directory, new_text_filename)  
+            
+            width = get_image_width(os.path.join(json_directory, json_file))
+            height = get_image_height(os.path.join(json_directory, json_file))
+            
+            # Write information to the text file
+            with open(output_text_path, 'w') as txt_file:
+                txt_file.write(f"filename\t{date}_S2_ukulhas_ms.tif\n")
+                txt_file.write("epsg\t32643\n")
+                txt_file.write("acc_georef\tPASSED\n")
+                txt_file.write("image_quality\tPASSED\n")
+                txt_file.write(f"im_width\t{width}\n")
+                txt_file.write(f"im_height\t{height}\n")
+                
+# helper functions for extract_metadata()!
+#--
+def get_image_height(json_file):
+     with open(json_file, 'r') as f:
+        data = json.load(f)
+        height = data["ProductInfo"]["NROWS"]
+        return height
+      
+def get_image_width(json_file):
+  with open(json_file, 'r') as f:
+        data = json.load(f)
+        width = data["ProductInfo"]["NCOLS"]
+        return width
+#--
+
