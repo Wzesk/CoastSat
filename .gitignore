@@ -13,8 +13,6 @@
 *checkpoint.ipynb
 *.csv
 *.xml
-*.json
-*.zip
 /deprecated
 /worked_example
 /.virtual_documents
