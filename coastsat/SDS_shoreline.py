@@ -371,6 +371,11 @@ def classify_image_NN(im_ms, cloud_mask, min_beach_area, clf):
 
     # classify pixels
     labels = clf.predict(vec_features)
+    
+    # maybe hack for making things better?
+    # reclassify white water and other as sand
+    labels[labels == 2] = 1
+    labels[labels == 0] = 1
 
     # recompose image
     vec_classif = np.nan*np.ones((cloud_mask.shape[0]*cloud_mask.shape[1]))

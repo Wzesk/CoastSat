@@ -42,7 +42,7 @@ from coastsat import SDS_shoreline, SDS_preprocess, SDS_tools
 # EXTRACTION OF ISLAND CONTOURS AS SAND POLYGONS
 ###################################################################################################
 
-def extract_sand_poly(metadata, settings):
+def extract_sand_poly(metadata, settings, isUkulhasMed):
     """
     Extracts shorelines from satellite images.
 
@@ -164,7 +164,10 @@ def extract_sand_poly(metadata, settings):
             # get image filename
             fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
             # preprocess image (cloud mask + pansharpening/downsampling)
-            im_ms, georef, cloud_mask, im_extra, imQA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, settings['cloud_mask_issue'],settings['pan_off'],settings['inputs']['landsat_collection'])
+            if(isUkulhasMed):
+                im_ms, georef, cloud_mask, im_extra, imQA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, settings['cloud_mask_issue'],settings['pan_off'],settings['inputs']['landsat_collection'], True)
+            else:
+                im_ms, georef, cloud_mask, im_extra, imQA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, settings['cloud_mask_issue'],settings['pan_off'],settings['inputs']['landsat_collection'])
 
 
             # get image spatial reference system (epsg code) from metadata dict
@@ -194,7 +197,7 @@ def extract_sand_poly(metadata, settings):
             im_binary_sand_closed = morphology.remove_small_holes(im_binary_sand, area_threshold=3000, connectivity=1)
             # vectorise the contours
             if satname == 'S2':
-                thresh = 0.5
+                thresh = 0.75
             else:
                 thresh = 0.75
             
@@ -203,9 +206,9 @@ def extract_sand_poly(metadata, settings):
             # if several contours, it means there is a gap --> merge sand and non-classified pixels
             if len(sand_contours) > 1:
                 im_binary_sand = np.logical_or(im_classif == 1, im_classif == 0)
-                im_binary_sand_closed = morphology.remove_small_holes(im_binary_sand, area_threshold=3000, connectivity=1)
+                im_binary_sand_closed = morphology.remove_small_holes(im_binary_sand, area_threshold=2000, connectivity=1)
                 if satname == 'S2':
-                    thresh = 0.5
+                    thresh = 0.75
                 else: 
                     thresh = 0.75
                     
@@ -227,6 +230,7 @@ def extract_sand_poly(metadata, settings):
                         sand_polygon = Polygon(shell=linear_ring, holes=None)
                 else:    
                     # convert to world coordinates
+                    print(len(sand_contours))
                     sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
                     sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]               
                     # make a shapely polygon

@@ -123,7 +123,7 @@ def label_images(metadata,settings):
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
                                                                                                      settings['cloud_mask_issue'],
                                                                                                      settings['pan_off'],
-                                                                                                     collection,
+                                                                                                     collection, False,
                                                                                                      settings['s2cloudless_prob'])
 
             # compute cloud_cover percentage (with no data pixels)
@@ -454,6 +454,7 @@ def format_training_data(features, classes, labels):
     # replace nans with something close to 0
     # training algotihms cannot handle nans
     X[np.isnan(X)] = 1e-9 
+    X[np.isinf(X)] = 1e-9
     
     return X, y
 

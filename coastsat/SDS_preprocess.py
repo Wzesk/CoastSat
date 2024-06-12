@@ -36,7 +36,19 @@ from coastsat import SDS_tools
 np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
 
 # Main function to preprocess a satellite image (L5, L7, L8, L9 or S2)
-def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2cloudless_prob=40):
+
+# this is where i gotta add in specific for Sentinel-2-L2A and PlanetScope-SuperDove
+
+#    Red
+#    Green
+#    Blue
+#    Yellow
+#    Vegetation-red-edge-1
+#   Flags
+#    Tmp_flags
+
+
+def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, isUkulhasMed, s2cloudless_prob=40):
     """
     Reads the image and outputs the pansharpened/down-sampled multispectral bands,
     the georeferencing vector of the image (coordinates of the upper left pixel),
@@ -82,6 +94,38 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
 
     """
     
+    if isUkulhasMed:
+        # read 10m bands (R,G,B,NIR) -- taken from S2 CoastSat code
+        fn_ms = fn[0]
+        data = gdal.Open(fn_ms, gdal.GA_ReadOnly)
+        georef = np.array(data.GetGeoTransform())
+        # change the index here based on order of bands
+        bands = [data.GetRasterBand(k + 1).ReadAsArray() for k in range(data.RasterCount-2)]
+        im_ms = np.stack(bands, 2)
+        
+        # don't know what this is??
+        
+        im_ms = im_ms/10000 # TOA scaled to 10000
+        # read s2cloudless cloud probability (last band in ms image)
+        # cloud_prob = data.GetRasterBand(data.RasterCount).ReadAsArray()
+
+        # image size
+        nrows = im_ms.shape[0]
+        ncols = im_ms.shape[1]
+        
+        im_QA = bands[0]
+        
+        # create dummy cloud mask for Ukulhas by passing in True as the last param
+        cloud_mask = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection, True)
+        
+        # no extra image
+        im_extra = []
+        
+        # check if -inf or nan values on any band and create nodata image
+        im_nodata = np.zeros(cloud_mask.shape).astype(bool)
+        
+        return im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata
+        
     if isinstance(fn, list):
         fn_to_split=fn[0]
     elif isinstance(fn, str):
@@ -110,7 +154,7 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
         data = gdal.Open(fn_mask, gdal.GA_ReadOnly)
         bands = [data.GetRasterBand(k + 1).ReadAsArray() for k in range(data.RasterCount)]
         im_QA = bands[0]
-        cloud_mask = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection)
+        cloud_mask = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection, False)
 
         # check if -inf or nan values on any band and eventually add those pixels to cloud mask
         im_nodata = np.zeros(cloud_mask.shape).astype(bool)
@@ -148,7 +192,7 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
         data = gdal.Open(fn_mask, gdal.GA_ReadOnly)
         bands = [data.GetRasterBand(k + 1).ReadAsArray() for k in range(data.RasterCount)]
         im_QA = bands[0]
-        cloud_mask = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection)
+        cloud_mask = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection, False)
         # check if -inf or nan values on any band and eventually add those pixels to cloud mask
         im_nodata = np.zeros(cloud_mask.shape).astype(bool)
         for k in range(im_ms.shape[2]):
@@ -247,7 +291,7 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
         bands = [data.GetRasterBand(k + 1).ReadAsArray() for k in range(data.RasterCount)]
         im_QA = bands[0]
         # compute cloud mask using QA60 band
-        cloud_mask_QA60 = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection)
+        cloud_mask_QA60 = create_cloud_mask(im_QA, satname, cloud_mask_issue, collection, False)
         # compute cloud mask using s2cloudless probability band
         cloud_mask_s2cloudless = create_s2cloudless_mask(cloud_prob, s2cloudless_prob)
         # combine both cloud masks
@@ -277,13 +321,17 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
         # no extra image
         im_extra = []
 
+    # print(cloud_mask)
+    # print(type(cloud_mask))
+    print(type(cloud_mask[0][0]))
+    print(cloud_mask.shape)
     return im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata
 
 ###################################################################################################
 # AUXILIARY FUNCTIONS
 ###################################################################################################
 
-def create_cloud_mask(im_QA, satname, cloud_mask_issue, collection):
+def create_cloud_mask(im_QA, satname, cloud_mask_issue, collection, isUkulhasMed):
     """
     Creates a cloud mask using the information contained in the QA band.
 
@@ -310,6 +358,9 @@ def create_cloud_mask(im_QA, satname, cloud_mask_issue, collection):
     if satname == 'S2':
         # 1024 = dense cloud, 2048 = cirrus clouds
         cloud_values = [1024, 2048] 
+    elif isUkulhasMed:
+        cloud_mask = np.full((108, 115), False, dtype=np.bool_)
+        return cloud_mask
     else:
         if collection == 'C01':
             if  satname in ['L8','L9']:
@@ -490,6 +541,7 @@ def rescale_image_intensity(im, cloud_mask, prob_high):
     im_adj: np.array
         rescaled image
     """
+    return im
 
     # lower percentile is set to 0
     prc_low = 0
@@ -673,7 +725,7 @@ def save_jpg(metadata, settings, use_matplotlib=False):
             # read and preprocess image
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess_single(fn, satname, settings['cloud_mask_issue'],
                                                                                       settings['pan_off'], collection, 
-                                                                                      s2cloudless_prob)
+                                                                                      s2cloudless_prob, False)
 
             # compute cloud_cover percentage (with no data pixels)
             cloud_cover_combined = np.divide(sum(sum(cloud_mask.astype(int))),
@@ -769,7 +821,7 @@ def get_reference_sl(metadata, settings):
         fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
         im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess_single(fn, satname, settings['cloud_mask_issue'],
                                                                                   settings['pan_off'], collection,
-                                                                                  settings['s2cloudless_prob'])
+                                                                                  settings['s2cloudless_prob'], False)
 
         # compute cloud_cover percentage (with no data pixels)
         cloud_cover_combined = np.divide(sum(sum(cloud_mask.astype(int))),

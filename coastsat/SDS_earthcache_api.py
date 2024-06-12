@@ -241,7 +241,7 @@ def extract_metadata(json_directory, output_directory):
                 txt_file.write(f"im_width\t{width}\n")
                 txt_file.write(f"im_height\t{height}\n")
                 
-# helper functions for extract_metadata()!
+# helper functions for extract_metadata()
 #--
 def get_image_height(json_file):
      with open(json_file, 'r') as f:
