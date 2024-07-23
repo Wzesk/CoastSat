@@ -394,7 +394,12 @@ def retrieve_images(inputs):
                 warp_image_to_target(fn_in,fn_out,fn_target,double_res=False,resampling_method='near')
                 
                 # delete original downloads
-                for _ in [fn_swir,fn_QA]: os.remove(_)  
+                for _ in [fn_swir,fn_QA]: os.remove(_) 
+
+                # check if the file already exists before renaming
+                if os.path.exists(os.path.join(fp_ms, im_fn['ms'])):
+                    continue
+
                 # rename the multispectral band file
                 os.rename(fn_ms,os.path.join(fp_ms, im_fn['ms']))
               

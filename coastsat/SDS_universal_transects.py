@@ -624,4 +624,3 @@ def remove_gaps(output,max_dist):
         output_filtered[key] = [output[key][i] for i in idx]
     print('%d shorelines with gaps removed' % (len(plines)-len(idx)))
     return output_filtered
-

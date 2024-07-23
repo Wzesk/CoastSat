@@ -217,7 +217,7 @@ def extract_sand_poly(metadata, settings):
                     for j in range(len(sand_contours)):
                         n_points.append(sand_contours[j].shape[0])
                     sand_contours = [sand_contours[np.argmax(n_points)]]
-                    
+                   
                     # convert to world coordinates
                     sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
                     sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]               
@@ -234,7 +234,7 @@ def extract_sand_poly(metadata, settings):
                         linear_ring = LinearRing(coordinates=sand_contours_coords[~np.isnan(sand_contours_coords[:,0])])
                         sand_polygon = Polygon(shell=linear_ring, holes=None)
                                       
-            else:                    
+            elif len(sand_contours) == 1:                    
                 # convert to world coordinates
                 sand_contours_world = SDS_tools.convert_pix2world(sand_contours[0],georef)
                 sand_contours_coords = SDS_tools.convert_epsg(sand_contours_world, image_epsg, settings['output_epsg'])##[:,:-1]             
@@ -243,7 +243,8 @@ def extract_sand_poly(metadata, settings):
                 if len(sand_contours_coords)>=3:
                     linear_ring = LinearRing(coordinates=sand_contours_coords[~np.isnan(sand_contours_coords[:,0])])
                     sand_polygon = Polygon(shell=linear_ring, holes=None)
-
+            else:   
+                break#seems like there are lots of issues with thsi code.
 
             
             # check if perimeter of polygon matches with reference shoreline
