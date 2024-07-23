@@ -169,10 +169,11 @@ def format_downloads(directory, isFirstTime):
               if file.endswith('.json'):
                 # TODO: rename file here before moving
                 if(not(os.path.exists(os.path.join(meta_path, file)))):
-                  shutil.move(os.path.join(foldername, file), meta_path)
+                  shutil.copy(os.path.join(foldername, file), meta_path)#shutil.move(os.path.join(foldername, file), meta_path)
               elif file.endswith(('.tif')):
                 if(not(os.path.exists(os.path.join(ms_path, file)))):
                   # TODO: rename file here before moving
-                  shutil.move(os.path.join(foldername, file), ms_path)
+                  shutil.copy(os.path.join(foldername, file), ms_path)#shutil.move(os.path.join(foldername, file), ms_path)
+                
 
     
