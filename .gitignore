@@ -18,3 +18,4 @@
 /deprecated
 /worked_example
 /.virtual_documents
+*.DS_Store
