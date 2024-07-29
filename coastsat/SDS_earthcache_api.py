@@ -10,6 +10,9 @@ import sys
 from osgeo import gdal
 import matplotlib.pyplot as plt
 import numpy as np
+import json
+from datetime import datetime
+import pickle
 # from coastsat import SDS_earthcache_client
 
 # always call this function first before using anything else
@@ -146,15 +149,21 @@ def format_downloads(directory, isFirstTime):
       # TODO: this should be changed based on which satellite data was taken from.
       # probably would need to look through the json file and create accordingly
       satellite_path = os.path.join(directory, "S2")
-      os.mkdir(satellite_path)
+      if not os.path.exists(satellite_path):
+        os.mkdir(satellite_path)
       meta_path = os.path.join(satellite_path, "json_files")
-      os.mkdir(meta_path)
+      if not os.path.exists(meta_path):
+        os.mkdir(meta_path)
       meta_coastsat_path = os.path.join(satellite_path, "meta")
-      os.mkdir(meta_coastsat_path)
+      if not os.path.exists(meta_coastsat_path):
+        os.mkdir(meta_coastsat_path)
       ms_path = os.path.join(satellite_path, "ms")
-      os.mkdir(ms_path)
-      os.mkdir(os.path.join(satellite_path, "mask"))
-      os.mkdir(os.path.join(satellite_path, "swir"))
+      if not os.path.exists(ms_path):
+        os.mkdir(ms_path)
+      if not os.path.exists(os.path.join(satellite_path, "mask")):
+        os.mkdir(os.path.join(satellite_path, "mask"))
+      if not os.path.exists(os.path.join(satellite_path, "swir")):
+        os.mkdir(os.path.join(satellite_path, "swir"))
     else:
       satellite_path = os.path.join(directory, "S2")
       meta_path = os.path.join(satellite_path, "json_files")
@@ -163,17 +172,148 @@ def format_downloads(directory, isFirstTime):
       
     for foldername, subfolders, filenames in os.walk(directory):
       # Check if there is a TIF or JSON file in the current folder
-      if any(file.endswith('.json') for file in filenames) or any(file.endswith(('.tif')) for file in filenames):
+      if any(file.endswith('.json') for file in filenames) or any(file.endswith(('.tif')) for file in filenames) or any(file.endswith(('.txt')) for file in filenames):
           # Move the image and JSON files to their respective folders in the root directory
           for file in filenames:
               if file.endswith('.json'):
                 # TODO: rename file here before moving
                 if(not(os.path.exists(os.path.join(meta_path, file)))):
                   shutil.copy(os.path.join(foldername, file), meta_path)#shutil.move(os.path.join(foldername, file), meta_path)
+              elif file.endswith('.txt'):
+                # TODO: rename file here before moving
+                if(not(os.path.exists(os.path.join(meta_coastsat_path, file)))):
+                  shutil.copy(os.path.join(foldername, file), meta_coastsat_path)#shutil.move(os.path.join(foldername, file), meta_path)
               elif file.endswith(('.tif')):
                 if(not(os.path.exists(os.path.join(ms_path, file)))):
                   # TODO: rename file here before moving
                   shutil.copy(os.path.join(foldername, file), ms_path)#shutil.move(os.path.join(foldername, file), ms_path)
                 
+############################################################################################################
+# adding some additional functions to format the project for coastsat.  Not sure these should reside here...
+############################################################################################################
 
-    
+#function to get all of the project paths in the data directory that include a particular string
+def get_project_paths(project_name,data_dir='data'):
+    project_paths = []
+    for root, dirs, files in os.walk(data_dir):
+        for name in dirs:
+            if project_name in name:
+                project_paths.append(os.path.join(root, name))
+    return project_paths
+  
+#Use the list of project paths and the projet name to generate metadata and format downloads
+def prep_download_folders(project_paths, project_name):
+    for proj_path in project_paths:
+        generate_metadata_txt(proj_path,project_name)
+        format_downloads(proj_path, True)
+        move_folder(project_name, proj_path+'\\S2','S2')
+
+#reformat project downloads
+def reformat_downloads(project_lookup, project_name, data_dir='data'):
+    project_paths = get_project_paths(project_lookup,data_dir)
+    prep_download_folders(project_paths, project_name)
+
+    rename_files(data_dir +'\\'+ project_name,'S2')
+
+#rebuild file name using directory and file name
+def rebuild_file_name(file_name):
+    name_parts = file_name.split("_")
+    type = name_parts[1]
+    new_name = name_parts[3]
+    #split new name at T character and turn the first part into a date
+    date_part = new_name.split("T")[0]
+    date_part = datetime.strptime(date_part, '%Y%m%d').strftime('%Y-%m-%d')
+    #turn the second part into a time
+    time_part = new_name.split("T")[1]
+    time_part = datetime.strptime(time_part, '%H%M%S').strftime('%H-%M-%S')
+    new_name = date_part + "-" + time_part + "-" + type
+    return new_name
+
+#function to rename all tif and txt files in directory and its subdirectories
+def rename_files(directory,type):
+
+    sat_file_names = {'S2':[]}
+
+    p_name = directory.split("\\")[-1]
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.tif') or file.endswith('.txt'):
+                file_beginning = rebuild_file_name(file)
+
+            if file.endswith('.txt'):
+                new_name = file_beginning + "_" + p_name + '.txt'
+                print("Renaming " + file + " to " + new_name)
+                os.rename(os.path.join(root, file), os.path.join(root, new_name))
+
+            if file.endswith('.tif'):
+                new_name = file_beginning + "_" + p_name + '_ms.tif'
+                print("Renaming " + file + " to " + new_name) 
+                sat_file_names['S2'].append(new_name)              
+                os.rename(os.path.join(root, file), os.path.join(root, new_name)) 
+    #save sat_file_names to a pickle file
+    with open(directory + "\\" + p_name + "_metadata.pkl", 'wb') as f:
+        pickle.dump(sat_file_names, f)
+      
+#function to move newly created folder into a folder with the site name within the data folder
+def move_folder(site_name, folder_name,type):  
+    #if folder does not exist, create it
+    if not os.path.exists("data\\" + site_name + "\\" + type):
+        os.makedirs("data\\" + site_name + "\\" + type)
+    #os.rename(folder_name, "data\\" + site_name + "\\" + type)
+    for root, dirs, files in os.walk(folder_name):
+      for dir in dirs:
+        #check if the folder already exists in the site folder
+        if not os.path.exists("data\\" + site_name + "\\" + type + "\\" + dir):
+          shutil.move(os.path.join(root, dir), "data\\" + site_name + "\\" + type + "\\" + dir)
+        else:
+           #move the files in the folder to the site folder
+          for file in os.listdir(os.path.join(root, dir)):
+            shutil.move(os.path.join(root, dir, file), "data\\" + site_name + "\\" + type + "\\" + dir + "\\" + file)
+
+#create a function that reads a json metadata file for a satellite image and generates a txt file with the metadata
+def generate_metadata_txt(directory,project_name):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.json'):
+                json_file = os.path.join(root, file)
+
+                with open(json_file) as f:
+                    data = json.load(f)
+
+                geo = data['GeoCodings'][0]['Coordinate_Reference_System']['WKT']
+                geo = geo.replace("\n","")
+                espg = geo.split("AUTHORITY")[-1].split(",")[-1].replace("]","").replace("\"","")
+
+                width = data['ProductInfo']['NCOLS']
+                height = data['ProductInfo']['NROWS']
+
+                #rebuild file name
+                file_begining = rebuild_file_name(file)
+
+                tif_file = file_begining + "_" + project_name + '_ms.tif'
+
+                #get the bands for this image
+                bands = data['Bands']
+                bandlist = []
+                for band in bands:
+                    bandlist.append(band['BAND_NAME'])
+
+                #create a dictionary with the metadata
+                metadata = {
+                    "filename":tif_file,
+                    "epsg":espg,
+                    "acc_georef":"PASSED",
+                    "image_quality":"PASSED",
+                    "im_width":width,
+                    "im_height":height,
+                    "bands":bandlist
+                }
+
+                # #replace tif with txt
+                txt_file = json_file.replace("_metadata.json", ".txt")
+                #write the metadata to a txt file, line by line, delimited by a tab
+                with open(txt_file, 'w') as f:
+                    for key in metadata.keys():
+                        f.write("%s\t%s\n" % (key, metadata[key])
+                        )       
+                #print("Metadata saved to: " + txt_file)
