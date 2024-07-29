@@ -143,8 +143,8 @@ def preprocess(fn, satname='S2',
 
         im_ms = im_ms/10000 # TOA scaled to 10000
 
-        # #crop array reduce the sice along the third axis
-        # im_ms = im_ms[:,:,:5]
+        #crop array reduce the sice along the third axis
+        im_ms = im_ms[:,:,:5]
 
         # image size
         nrows = im_ms.shape[0]
@@ -510,7 +510,7 @@ def get_reference_sl(metadata, settings):
 
         # read image
         fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
-        im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess(fn, satname, settings['cloud_mask_issue'])
+        im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = preprocess(fn)
 
         # compute cloud_cover percentage (with no data pixels)
         cloud_cover_combined = np.divide(sum(sum(cloud_mask.astype(int))),
