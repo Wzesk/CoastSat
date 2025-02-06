@@ -27,7 +27,6 @@ from shapely.geometry import LineString
 # other modules
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
-import matplotlib.cm as cm
 from matplotlib import gridspec
 import pickle
 from datetime import datetime, timedelta
@@ -88,7 +87,6 @@ def extract_shorelines(metadata, settings):
 
     sitename = settings['inputs']['sitename']
     filepath_data = settings['inputs']['filepath']
-    collection = settings['inputs']['landsat_collection']
     filepath_models = os.path.join(os.getcwd(), 'classification', 'models')
     # initialise output structure
     output = dict([])
@@ -153,7 +151,6 @@ def extract_shorelines(metadata, settings):
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
                                                                                                      settings['cloud_mask_issue'], 
                                                                                                      settings['pan_off'],
-                                                                                                     collection,
                                                                                                      settings['s2cloudless_prob'])
             # get image spatial reference system (epsg code) from metadata dict
             image_epsg = metadata[satname]['epsg'][i]
@@ -768,7 +765,7 @@ def show_detection(im_ms, cloud_mask, im_labels, shoreline,image_epsg, georef,
 
     # compute classified image
     im_class = np.copy(im_RGB)
-    cmap = cm.get_cmap('tab20c')
+    cmap = plt.get_cmap('tab20c')
     colorpalette = cmap(np.arange(0,13,1))
     colours = np.zeros((3,4))
     colours[0,:] = colorpalette[5]
@@ -983,7 +980,7 @@ def adjust_detection(im_ms, cloud_mask, im_nodata, im_labels, im_ref_buffer, ima
 
     # compute classified image
     im_class = np.copy(im_RGB)
-    cmap = cm.get_cmap('tab20c')
+    cmap = plt.get_cmap('tab20c')
     colorpalette = cmap(np.arange(0,13,1))
     colours = np.zeros((3,4))
     colours[0,:] = colorpalette[5]

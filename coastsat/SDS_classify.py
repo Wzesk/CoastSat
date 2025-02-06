@@ -9,7 +9,6 @@ Author: Kilian Vos, Water Research Laboratory, University of New South Wales
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from matplotlib.widgets import LassoSelector
 from matplotlib import path
 import pickle
@@ -103,7 +102,6 @@ def label_images(metadata,settings):
     """
     
     filepath_train = settings['filepath_train']
-    collection = settings['inputs']['landsat_collection']
 
     # initialize figure
     fig,ax = plt.subplots(1,1,figsize=[17,10], tight_layout=True,sharex=True,
@@ -123,7 +121,6 @@ def label_images(metadata,settings):
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
                                                                                                      settings['cloud_mask_issue'],
                                                                                                      settings['pan_off'],
-                                                                                                     collection,
                                                                                                      settings['s2cloudless_prob'])
 
             # compute cloud_cover percentage (with no data pixels)
@@ -457,7 +454,7 @@ def format_training_data(features, classes, labels):
     
     return X, y
 
-def plot_confusion_matrix(y_true,y_pred,classes,normalize=False,cmap=plt.cm.Blues):
+def plot_confusion_matrix(y_true,y_pred,classes,normalize=False,cmap=plt.get_cmap("Blues")):
     """
     Function copied from the scikit-learn examples (https://scikit-learn.org/stable/)
     This function plots a confusion matrix.
@@ -535,7 +532,6 @@ def evaluate_classifier(classifier, metadata, settings):
     Saves .jpg images with the output of the classification in the folder ./detection
     
     """  
-    collection = settings['inputs']['landsat_collection']
     # create folder called evaluation
     fp = os.path.join(os.getcwd(), 'evaluation')
     if not os.path.exists(fp):
@@ -547,7 +543,7 @@ def evaluate_classifier(classifier, metadata, settings):
                           constrained_layout=True)
 
     # create colormap for labels
-    cmap = cm.get_cmap('tab20c')
+    cmap = plt.get_cmap('tab20c')
     colorpalette = cmap(np.arange(0,13,1))
     colours = np.zeros((3,4))
     colours[0,:] = colorpalette[5]
@@ -575,7 +571,6 @@ def evaluate_classifier(classifier, metadata, settings):
             im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess.preprocess_single(fn, satname, 
                                                                                                      settings['cloud_mask_issue'],
                                                                                                      settings['pan_off'],
-                                                                                                     collection,
                                                                                                      settings['s2cloudless_prob'])
             image_epsg = metadata[satname]['epsg'][i]
 
