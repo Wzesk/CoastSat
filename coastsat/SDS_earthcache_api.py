@@ -187,7 +187,7 @@ def format_downloads(directory, isFirstTime):
                 if(not(os.path.exists(os.path.join(ms_path, file)))):
                   # TODO: rename file here before moving
                   shutil.copy(os.path.join(foldername, file), ms_path)#shutil.move(os.path.join(foldername, file), ms_path)
-                
+
 ############################################################################################################
 # adding some additional functions to format the project for coastsat.  Not sure these should reside here...
 ############################################################################################################

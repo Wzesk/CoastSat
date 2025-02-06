@@ -191,11 +191,13 @@ def retrieve_images(inputs):
             # for S2 add s2cloudless probability band
             if satname == 'S2':
                 if len(im_dict_s2cloudless[i]) == 0:
-                    raise Exception('could not find matching s2cloudless image, raise issue on Github at'+
-                                    'https://github.com/kvos/CoastSat/issues and provide your inputs.')
-                im_cloud = ee.Image(im_dict_s2cloudless[i]['id'])
-                cloud_prob = im_cloud.select('probability').rename('s2cloudless')
-                image_ee = image_ee.addBands(cloud_prob)
+                    print('WARNING: could not find matching s2cloudless image, raise issue on Github at'+'https://github.com/kvos/CoastSat/issues and provide your inputs.')
+                    # raise Exception('could not find matching s2cloudless image, raise issue on Github at'+
+                    #                 'https://github.com/kvos/CoastSat/issues and provide your inputs.')
+                else:
+                    im_cloud = ee.Image(im_dict_s2cloudless[i]['id'])
+                    cloud_prob = im_cloud.select('probability').rename('s2cloudless')
+                    image_ee = image_ee.addBands(cloud_prob)
             
             # download the images as .tif files
             bands = dict([])

@@ -264,7 +264,9 @@ def preprocess_single(fn, satname, cloud_mask_issue, pan_off, collection, s2clou
         im_zeros = np.ones(im_nodata.shape).astype(bool)
         im_zeros = np.logical_and(np.isin(im_ms[:,:,1],0), im_zeros) # Green
         im_zeros = np.logical_and(np.isin(im_ms[:,:,3],0), im_zeros) # NIR
-        im_zeros = np.logical_and(np.isin(im_ms[:,:,4],0), im_zeros) # SWIR
+        #if the third axis lenth is 5, then there is a SWIR band
+        if im_ms.shape[2] > 4:
+            im_zeros = np.logical_and(np.isin(im_ms[:,:,4],0), im_zeros) # SWIR
         # add to im_nodata
         im_nodata = np.logical_or(im_zeros, im_nodata)
         # dilate if image was merged as there could be issues at the edges

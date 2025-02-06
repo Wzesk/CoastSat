@@ -155,6 +155,9 @@ def extract_shorelines(metadata, settings):
                                                                                                      settings['pan_off'],
                                                                                                      collection,
                                                                                                      settings['s2cloudless_prob'])
+            
+            print("georef: ", georef)
+
             # get image spatial reference system (epsg code) from metadata dict
             image_epsg = metadata[satname]['epsg'][i]
             

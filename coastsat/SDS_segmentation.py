@@ -28,79 +28,121 @@ from datetime import datetime, timedelta
 from pylab import ginput
 
 # CoastSat modules
-from coastsat import SDS_tools, SDS_preprocess
+from coastsat import SDS_tools, SDS_preprocess,SDS_shoreline,SDS_preprocess_med
 
 np.seterr(all='ignore') # raise/ignore divisions by 0 and nans
 
 ###################################################################################################
-# CONTOUR MAPPING FUNCTIONS from Coastsat
+# shoreline extraction 
+
+#!pip install simplification
+
+# from simplification.cutil import simplify_coords
+# from PIL import Image
 ###################################################################################################
 
-def find_mask_contours(im_ms, im_labels, cloud_mask, im_ref_buffer):
+def get_shoreline(mask_img):
+  # Load the mask image
+  img_in = Image.open(mask_img)
+  # Convert the image to a NumPy array
+  mask_array = np.array(img_in)
+
+  # Find contours (boundaries) in the mask
+  contours = measure.find_contours(mask_array, 0.5)
+
+  # Assuming you want the longest contour (outer boundary)
+  longest_contour = max(contours, key=len)
+
+  # Extract the coordinates of the shoreline points
+  shoreline_points = np.array(longest_contour).squeeze()
+
+  # Simplify the shoreline points using the Visvalingam-Whyatt algorithm
+  simplified_shoreline = simplify_coords(shoreline_points, 1)  # Adjust 0.01 as needed for desired simplification level
+
+  # Smooth the simplified shoreline using a moving average filter
+  window_size = 3  # Adjust as needed for desired smoothing level
+  smoothed_shoreline = np.convolve(simplified_shoreline[:, 0], np.ones(window_size)/window_size, mode='same')
+  smoothed_shoreline = np.stack((smoothed_shoreline, np.convolve(simplified_shoreline[:, 1], np.ones(window_size)/window_size, mode='same')), axis=-1)
+
+  smoothed_shoreline = smoothed_shoreline[1:-1,:]
+  #append the first point to the end of smooth shoreline
+  return np.vstack((smoothed_shoreline,smoothed_shoreline[0,:]))
+
+def masks_to_shorelines(settings,metadata):
     """
-    New robust method for extracting shorelines. Incorporates the classification
-    component to refine the treshold and make it specific to the sand/water interface.
-
-    KV WRL 2018
-
-    Arguments:
-    -----------
-
-    im_labels: np.array
-        3D image containing a boolean image for each class in the order (sand, swash, water)
- 
-
-    Returns:    
-    -----------
-    contours_mwi: list of np.arrays
-        contains the coordinates of the contour lines extracted from the
-        MNDWI (Modified Normalized Difference Water Index) image
-    t_mwi: float
-        Otsu sand/water threshold used to map the contours
-
-    """
-
-    nrows = cloud_mask.shape[0]
-    ncols = cloud_mask.shape[1]
-
-
-
-    # reshape labels into vectors
-    vec_island = im_labels[:,:,0].reshape(ncols*nrows)
-    vec_ocean = im_labels[:,:,1].reshape(ncols*nrows)
-
-    # use im_ref_buffer and dilate it by 5 pixels
-    se = morphology.disk(5)
-    im_ref_buffer_extra = morphology.binary_dilation(im_ref_buffer, se)
-    # create a buffer around the sandy beach
-    vec_buffer = im_ref_buffer_extra.reshape(nrows*ncols)
     
-    # select water/sand pixels that are within the buffer
-    int_water = vec_ind[np.logical_and(vec_buffer,vec_ocean),:]
-    int_sand = vec_ind[np.logical_and(vec_buffer,vec_island),:]
 
-    # make sure both classes have the same number of pixels before thresholding
-    if len(int_water) > 0 and len(int_sand) > 0:
-        if np.argmin([int_sand.shape[0],int_water.shape[0]]) == 1:
-            int_sand = int_sand[np.random.choice(int_sand.shape[0],int_water.shape[0], replace=False),:]
-        else:
-            int_water = int_water[np.random.choice(int_water.shape[0],int_sand.shape[0], replace=False),:]
+    """
+    satname = 'S2'
 
-    # threshold the sand/water intensities
-    int_all = np.append(int_water,int_sand, axis=0)
-    t_mwi = filters.threshold_otsu(int_all[:,0])
-    t_wi = filters.threshold_otsu(int_all[:,1])
+    sitename = settings['inputs']['sitename']
+    filepath_data = settings['inputs']['filepath']
+    collection = settings['inputs']['landsat_collection']
+    filepath_models = os.path.join(os.getcwd(), 'classification', 'models')
+    # initialise output structure
+    output = dict([])
 
-    # find contour with Marching-Squares algorithm
-    im_wi_buffer = np.copy(im_wi)
-    im_wi_buffer[~im_ref_buffer] = np.nan
-    im_mwi_buffer = np.copy(im_mwi)
-    im_mwi_buffer[~im_ref_buffer] = np.nan
-    contours_wi = measure.find_contours(im_wi_buffer, t_wi)
-    contours_mwi = measure.find_contours(im_mwi_buffer, t_mwi)
-    # remove contour points that are NaNs (around clouds)
-    contours_wi = process_contours(contours_wi)
-    contours_mwi = process_contours(contours_mwi)
 
-    # only return MNDWI contours and threshold
-    return contours_mwi, t_mwi
+    print('Mapping shorelines:')
+
+    # get images
+    filepath = SDS_tools.get_filepath(settings['inputs'],satname)
+    filenames = metadata[satname]['filenames']
+
+    # initialise the output variables
+    output_timestamp = []  # datetime at which the image was acquired (UTC time)
+    output_shoreline = []  # vector of shoreline points
+    output_filename = []   # filename of the images from which the shorelines where derived
+    #output_cloudcover = [] # cloud cover of the images
+    output_geoaccuracy = []# georeferencing accuracy of the images
+    output_idxkeep = []    # index that were kept during the analysis (cloudy images are skipped)
+    #output_t_mndwi = []    # MNDWI threshold used to map the shoreline
+
+    
+    # loop through the images
+    for i in range(len(filenames)):
+
+        print('\r%s:   %d%%' % (satname,int(((i+1)/len(filenames))*100)), end='')
+        # get image filename
+        fn = SDS_tools.get_filenames(filenames[i],filepath, satname)
+        # get mask image
+        fn_mask = fn.replace('ms','mask')
+        fn_mask = fn.replace('tif','jpg')
+        # get the shoreline from the mask image
+        shoreline = get_shoreline(fn_mask)
+        
+        im_ms, georef, cloud_mask, im_extra, im_QA, im_nodata = SDS_preprocess_med.preprocess_single(fn)
+
+        world_shoreline = SDS_tools.convert_pix2world(shoreline, georef)
+
+        # append to output variables
+        output_timestamp.append(metadata[satname]['dates'][i])
+        output_shoreline.append(world_shoreline)
+        output_filename.append(filenames[i])
+        #output_cloudcover.append(cloud_cover)
+        output_geoaccuracy.append(metadata[satname]['acc_georef'][i])
+        output_idxkeep.append(i)
+        #output_t_mndwi.append(t_mndwi)
+
+    # create dictionnary of output
+    output[satname] = {
+            'dates': output_timestamp,
+            'shorelines': output_shoreline,
+            'filename': output_filename,
+            #'cloud_cover': output_cloudcover,
+            'geoaccuracy': output_geoaccuracy,
+            'idx': output_idxkeep,
+            #'MNDWI_threshold': output_t_mndwi,
+            }
+    print('')
+
+    # change the format to have one list sorted by date with all the shorelines (easier to use)
+    output = SDS_tools.merge_output(output)
+
+    # save outputput structure as output.pkl
+    filepath = os.path.join(filepath_data, sitename)
+    with open(os.path.join(filepath, sitename + '_output.pkl'), 'wb') as f:
+        pickle.dump(output, f)
+
+    return output
+
